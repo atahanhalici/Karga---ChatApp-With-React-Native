@@ -6,6 +6,7 @@ import ForgotPassword from "./Screens/ForgotPassword/index";
 import Home from './Screens/Home/index'
 import { createStackNavigator } from '@react-navigation/stack'
 import Splash from './Screens/Splash/index'
+import Chat from "./Screens/Chat/index";
 
 const Stack=createStackNavigator();
 
@@ -19,6 +20,7 @@ render(){
     <Stack.Screen name="Forgot Password" component={ForgotPassword} options={{ headerShown: false }}/>
     <Stack.Screen name="Home" component={Home} options={{ headerShown: false }}/>
     <Stack.Screen name="Splash" component={Splash} options={{ headerShown: false }}/>
+    <Stack.Screen name="Chat" component={Chat} options={{ headerShown: false }}/>
   </Stack.Navigator>
 </NavigationContainer>
 }
