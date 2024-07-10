@@ -32,8 +32,11 @@ renderItem=({item,index})=>{
 }
 
 componentDidMount(){
-    const { roomId } = this.props.route.params;
-
+    const { roomId,name } = this.props.route.params;
+    console.log(name)
+    this.props.navigation.setOptions({
+        title: name,
+      })
     socket.emit('connection-room',{roomId});
     socket.on('connection-room-view',(data)=>{
 this.setState({
@@ -57,13 +60,9 @@ snapshot.forEach((item) => {
 });
 
     this.setState({messages})
-    setTimeout(() => {
-        this.flatListRef.scrollToEnd();
-    }, 500);
+  
   });
-setTimeout(() => {
-    this.flatListRef.scrollToEnd();
-}, 1000);
+
 }
 
 componentWillUnmount(){
@@ -104,7 +103,7 @@ newReference.set({
             <View style={{padding:10 , backgroundColor:'#ddd', alignItems:'center',justifyContent:'center'}}>
                 <Text >Connected Users: {connectedUserCount}</Text>
             </View>
-            <FlatList ref={(ref)=> this.flatListRef=ref} data={messages} style={style.flatlist} renderItem={this.renderItem}></FlatList>
+            <FlatList inverted ref={(ref)=> this.flatListRef=ref} data={messages.reverse()} style={style.flatlist} renderItem={this.renderItem}></FlatList>
                 <View style={style.inputArea} >
                     <View style={{alignItems:'center', flexDirection:'row'}}><TextInput value={text} onChangeText={(text)=>this.setState({text})} style={style.input} placeholder='Write message..'></TextInput><TouchableOpacity onPress={this.handleSend}><Icon name={"paper-plane"} size={25}></Icon></TouchableOpacity></View>
                     

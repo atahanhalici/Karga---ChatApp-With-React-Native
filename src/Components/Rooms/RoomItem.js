@@ -4,16 +4,16 @@ import Icon from 'react-native-vector-icons/FontAwesome5';
 
 const RoomItem = ({ item, navigation }) => {
 
-    console.log(item.id);
+    
     return (
         <TouchableOpacity
             style={style.item}
-            onPress={() => navigation.navigate('Chat', { roomId: item.id })}
+            onPress={() => navigation.navigate('Chat', { roomId: item.id , name:item.name })}
         >
             <Icon name={'crow'} size={30} style={{ paddingRight: 15 }} />
             <View>
                 <Text style={style.title}>{item.name}</Text>
-                <Text style={style.name}>Room Owner: {item.userName}</Text>
+                <Text style={style.name}>Room Owner: {item.userName}</Text>         
             </View>
         </TouchableOpacity>
     );

@@ -26,7 +26,7 @@ class Home extends Component {
         
     }
 
-    componentDidMount(){
+    componentDidMount(){        
         const user=auth().currentUser;
         firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
             .ref('/rooms')
@@ -40,7 +40,7 @@ snapshot.forEach((item) => {
         userName:item.val().userName,
         userId:item.val().userId,
         id:item.key
-    })
+    })   
 });
 rooms=rooms.reverse();
     this.setState({rooms})

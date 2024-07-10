@@ -20,7 +20,7 @@ render(){
     <Stack.Screen name="Forgot Password" component={ForgotPassword} options={{ headerShown: false }}/>
     <Stack.Screen name="Home" component={Home} options={{ headerShown: false }}/>
     <Stack.Screen name="Splash" component={Splash} options={{ headerShown: false }}/>
-    <Stack.Screen name="Chat" component={Chat} options={{ headerShown: false }}/>
+    <Stack.Screen name="Chat" component={Chat}/>
   </Stack.Navigator>
 </NavigationContainer>
 }
