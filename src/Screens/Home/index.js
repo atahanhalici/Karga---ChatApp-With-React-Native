@@ -39,12 +39,16 @@ snapshot.forEach((item) => {
         name:item.val().name,
         userName:item.val().userName,
         userId:item.val().userId,
-        id:item.key
+        id:item.key,
+        connectedUserCount:item.val().connectedUserCount
     })   
 });
 rooms=rooms.reverse();
     this.setState({rooms})
+    console.log(this.state.rooms);
   });
+
+
 
 
     }
@@ -75,6 +79,7 @@ rooms=rooms.reverse();
                     name: chatRoomName,
                     userId: userId,
                     userName: userName,
+                    connectedUserCount:0,
                 }).then(() => {
                     console.log("Chat room created successfully");
 

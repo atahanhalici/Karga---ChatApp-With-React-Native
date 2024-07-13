@@ -20,10 +20,28 @@ class Register extends React.Component {
   .then(() => {
     const user=firebase.auth().currentUser;
     user.updateProfile({displayName:values.username});
+   /* const timestamp = firebase.database.ServerValue.TIMESTAMP;
+    const newReference = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${user.uid}`).push();
+    newReference.set({
+      userId: user.uid,
+      userName: values.userName,
+      createTime: timestamp,
+      lastOnlineTime: timestamp,
+      online:true,
+      friends:[],
+      friendRequests:[],
+      groups:[],
+  }).then(() => {
+      
+  }).catch((error) => {
+      
+  });*/
     this.props.navigation.reset({
         index: 0,
         routes: [{ name: 'Home' }],
       });
+
+      
   })
   .catch(error => {
    /* if (error.code === 'auth/email-already-in-use') {
