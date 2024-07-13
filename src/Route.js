@@ -7,6 +7,7 @@ import Home from './Screens/Home/index'
 import { createStackNavigator } from '@react-navigation/stack'
 import Splash from './Screens/Splash/index'
 import Chat from "./Screens/Chat/index";
+import Messages from "./Screens/Home/Messages";
 
 const Stack=createStackNavigator();
 
@@ -21,6 +22,7 @@ render(){
     <Stack.Screen name="Home" component={Home} options={{ headerShown: false }}/>
     <Stack.Screen name="Splash" component={Splash} options={{ headerShown: false }}/>
     <Stack.Screen name="Chat" component={Chat}/>
+    <Stack.Screen name="Messages" component={Messages} />
   </Stack.Navigator>
 </NavigationContainer>
 }

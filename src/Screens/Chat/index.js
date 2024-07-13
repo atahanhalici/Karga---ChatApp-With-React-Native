@@ -1,4 +1,3 @@
-// Firebase ve diğer gereksinimleri yükleyin
 import React, { Component } from 'react';
 import { View, Text, StyleSheet, TextInput, FlatList, SafeAreaView } from 'react-native';
 import Message from '../../Components/Rooms/Message';
@@ -7,16 +6,7 @@ import { TouchableOpacity } from 'react-native-gesture-handler';
 import auth from '@react-native-firebase/auth';
 import firebase from '@react-native-firebase/app';
 
-// Kullanıcı bağlantı durumu düşürme işlevi
-const decreaseConnectedUserCount = (roomId) => {
-    // Firebase referansı oluşturun
-    const roomRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`rooms/${roomId}`);
 
-    // Kullanıcı bağlantısı kesildiğinde bu işlemi yap
-    roomRef.onDisconnect().update({
-        connectedUserCount: firebase.database.ServerValue.increment(-1)
-    });
-};
 
 class Chat extends Component {
     constructor(props) {
@@ -28,52 +18,79 @@ class Chat extends Component {
         };
     }
 
+    // Kullanıcı bağlantı durumu düşürme işlevi
+ decreaseConnectedUserCount = (roomId) => {
+
+    // Firebase referansı oluşturun
+    const roomRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`rooms/${roomId}`);
+
+    // Kullanıcı bağlantısı kesildiğinde bu işlemi yap
+    roomRef.onDisconnect().update({
+        connectedUserCount: firebase.database.ServerValue.increment(-1)
+    });
+};
+
+cancelDisconnect = (roomId) => {
+    const roomRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`rooms/${roomId}`);
+        
+            roomRef.onDisconnect().cancel(); // Firebase'de onDisconnect'i iptal et
+        
+    };
+
     renderItem = ({ item, index }) => {
         return <Message item={item} index={index}></Message>;
     };
 
     componentDidMount() {
-        const { roomId, name } = this.props.route.params;
-        console.log(name);
+        const { roomId, conversationId, name } = this.props.route.params;
         this.props.navigation.setOptions({
             title: name,
         });
 
-        this.joinRoom(roomId);
+        if (roomId) {
+            this.joinRoom(roomId);
 
-        firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
-        .ref(`messages/${roomId}`)
-        .orderByChild('timestamp') // timestamp alanına göre sıralama
-        .on('value', snapshot => {
-            var messages = [];
-            snapshot.forEach((item) => {
-                messages.push({
-                    roomId: item.val().roomId,
-                    text: item.val().text,
-                    userName: item.val().userName,
-                    userId: item.val().userId,
-                    id: item.key
-                });
-            });
-            // Tarihe göre sıralama
-            messages.sort((a, b) => a.timestamp - b.timestamp);
-            
-            this.setState({ messages });
-        });
-
-        firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
-            .ref(`rooms/${roomId}/connectedUserCount`)
+            firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+            .ref(`messages/${roomId}`)
+            .orderByChild('timestamp') // timestamp alanına göre sıralama
             .on('value', snapshot => {
-                this.setState({ connectedUserCount: snapshot.val() || 0 });
+                var messages = [];
+                snapshot.forEach((item) => {
+                    messages.push({
+                        roomId: item.val().roomId,
+                        text: item.val().text,
+                        userName: item.val().userName,
+                        userId: item.val().userId,
+                        timestamp: item.val().timestamp, // Zaman damgasını dahil et
+                        id: item.key
+                    });
+                });
+                // Tarihe göre sıralama
+                messages.sort((a, b) => b.timestamp - a.timestamp);
+                
+                this.setState({ messages });
             });
 
-        // Kullanıcı bağlantısı kesildiğinde bağlı kullanıcı sayısını azalt
-        decreaseConnectedUserCount(roomId);
+            firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .ref(`rooms/${roomId}/connectedUserCount`)
+                .on('value', snapshot => {
+                    this.setState({ connectedUserCount: snapshot.val() || 0 });
+                });
+
+            // Kullanıcı bağlantısı kesildiğinde bağlı kullanıcı sayısını azalt
+            this.decreaseConnectedUserCount(roomId);
+        } else if (conversationId) {
+            this.fetchConversationMessages(conversationId);
+        }
     }
 
     componentWillUnmount() {
         const { roomId } = this.props.route.params;
-        this.leaveRoom(roomId);
+        if (roomId) {
+            this.cancelDisconnect(roomId);
+            this.leaveRoom(roomId);
+
+        }
     }
 
     joinRoom = async (roomId) => {
@@ -90,22 +107,49 @@ class Chat extends Component {
         });
     };
 
+    fetchConversationMessages = (conversationId) => {
+        firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+            .ref(`conversations/${conversationId}/messages`)
+            .orderByChild('timestamp') // timestamp alanına göre sıralama
+            .on('value', snapshot => {
+                var messages = [];
+                snapshot.forEach((item) => {
+                    messages.push({
+                        conversationId: item.val().conversationId,
+                        text: item.val().text,
+                        userName: item.val().userName,
+                        userId: item.val().userId,
+                        timestamp: item.val().timestamp, // Zaman damgasını dahil et
+                        id: item.key
+                    });
+                });
+                // Tarihe göre sıralama
+                messages.sort((a, b) => b.timestamp - a.timestamp);
+                
+                this.setState({ messages });
+            });
+    };
+
     handleSend = () => {
         const { text } = this.state;
-        const { roomId } = this.props.route.params;
+        const { roomId, conversationId } = this.props.route.params;
     
-        console.log(roomId);
         const user = auth().currentUser;
     
         const userId = user.uid;
         const userName = user.displayName;
     
         const timestamp = firebase.database.ServerValue.TIMESTAMP; // Firebase tarafından sağlanan anlık zaman bilgisi
-    
-        const newReference = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`messages/${roomId}`).push();
+
+        let newReference;
+
+        if (roomId) {
+            newReference = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`messages/${roomId}`).push();
+        } else if (conversationId) {
+            newReference = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`conversations/${conversationId}/messages`).push();
+        }
     
         newReference.set({
-            roomId,
             text: text,
             userId: userId,
             userName: userName,
@@ -113,30 +157,35 @@ class Chat extends Component {
         }).then(() => {
             this.setState({ text: '' });
         }).catch((error) => {
-            alert("Error! Failed to Establish Room");
-            console.error("Error creating chat room:", error);
+            alert("Error! Failed to send message");
+            console.error("Error sending message:", error);
         });
     };
-    
 
     render() {
         const { text, messages, connectedUserCount } = this.state;
+        const { roomId } = this.props.route.params;
         return (
             <SafeAreaView style={{ flex: 1 }}>
-                <View style={{ padding: 10, backgroundColor: '#ddd', alignItems: 'center', justifyContent: 'center' }}>
-                    <Text>Connected Users: {connectedUserCount}</Text>
-                </View>
+                {roomId && (
+                    <View style={{ padding: 10, backgroundColor: '#ddd', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text>Connected Users: {connectedUserCount}</Text>
+                    </View>
+                )}
                 <FlatList
                     inverted
                     ref={(ref) => this.flatListRef = ref}
-                    data={messages.reverse()}
+                    data={messages}
                     style={style.flatlist}
                     renderItem={this.renderItem}
+                    keyExtractor={(item) => item.id}
                 />
                 <View style={style.inputArea}>
                     <View style={{ alignItems: 'center', flexDirection: 'row' }}>
                         <TextInput value={text} onChangeText={(text) => this.setState({ text })} style={style.input} placeholder='Write message..'></TextInput>
-                        <TouchableOpacity onPress={this.handleSend}><Icon name={"paper-plane"} size={25}></Icon></TouchableOpacity>
+                        <TouchableOpacity onPress={this.handleSend}>
+                            <Icon name={"paper-plane"} size={25} color='#FF8400'></Icon>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </SafeAreaView>
@@ -145,10 +194,27 @@ class Chat extends Component {
 }
 
 const style = StyleSheet.create({
-    flatlist: { flex: 1, padding: 10 },
-    inputArea: { flexDirection: 'column', justifyContent: 'flex-end', padding: 15, },
+    flatlist: {
+        flex: 1
+    },
+    inputArea: {
+        padding: 10,
+        borderTopColor: '#dedede',
+        borderTopWidth: 1
+    },
     input: {
-        height: 40, paddingHorizontal: 20, color: 'black', borderWidth: 1, borderColor: '#FF8400', flex: 1, marginRight: 10
+        backgroundColor: '#dedede',
+        borderRadius: 15,
+        paddingLeft: 20,
+        flex: 1,
+        height: 50,
+        marginRight: 20
+    },
+    send: {
+        backgroundColor: '#FF8400',
+        paddingHorizontal: 10,
+        paddingVertical: 15,
+        borderRadius: 8,
     }
 });
 

@@ -31,6 +31,7 @@ backgroundColor:'#ddd',
 maxWidth:Dimensions.get('window').width*0.7,
 marginBottom:10,
 borderRadius:15,
+margin:10
 
     }
 })

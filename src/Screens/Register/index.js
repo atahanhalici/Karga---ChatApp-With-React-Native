@@ -15,27 +15,27 @@ class Register extends React.Component {
     }
 
     _handleSubmit=(values)=>{
+      console.log(values);
         auth()
   .createUserWithEmailAndPassword(values.email, values.password)
   .then(() => {
     const user=firebase.auth().currentUser;
     user.updateProfile({displayName:values.username});
-   /* const timestamp = firebase.database.ServerValue.TIMESTAMP;
-    const newReference = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${user.uid}`).push();
-    newReference.set({
-      userId: user.uid,
-      userName: values.userName,
-      createTime: timestamp,
-      lastOnlineTime: timestamp,
-      online:true,
-      friends:[],
-      friendRequests:[],
-      groups:[],
-  }).then(() => {
-      
-  }).catch((error) => {
-      
-  });*/
+    const timestamp = firebase.database.ServerValue.TIMESTAMP;
+    const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${user.uid}`);
+    userRef.set({
+        userId: user.uid,
+        userName: values.username,
+        createTime: timestamp,
+        lastOnlineTime: timestamp,
+        online: true,
+        friends:[],
+        bio:'Karga bir harika!'
+    }).then(() => {
+        // Başarıyla kaydedildiğinde yapılacak işlemler
+    }).catch((error) => {
+        // Hata durumunda yapılacak işlemler
+    });
     this.props.navigation.reset({
         index: 0,
         routes: [{ name: 'Home' }],
