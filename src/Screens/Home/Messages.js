@@ -27,7 +27,7 @@ const Messages = () => {
 
     const fetchConversations = async (conversationsData, userId) => {
         try {
-            const conversationList = await Promise.all(
+            await Promise.all(
                 Object.keys(conversationsData).map(async (conversationId) => {
                     const conversationRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/conversations/${conversationId}`);
                     
@@ -188,7 +188,7 @@ const Messages = () => {
                                     <Text style={styles.name}>{item.bio}</Text>
                                 </View>
                                 <View style={{flex:1}} />
-                                <View style={[styles.dot,{backgroundColor:(item.online)?'green':'red'}]} />
+                                <View style={[styles.dot, { backgroundColor: (item.online) ? 'green' : 'red' }]} />
                             </TouchableOpacity>
                         )}
                     />
@@ -196,7 +196,7 @@ const Messages = () => {
             </Modal>
         </View>
     );
-}
+};
 const styles = StyleSheet.create({
     container: {
         flex: 1,

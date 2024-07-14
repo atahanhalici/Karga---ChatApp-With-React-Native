@@ -5,8 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import auth from '@react-native-firebase/auth';
-
-
+import messaging from '@react-native-firebase/messaging'
+import firebase from '@react-native-firebase/app';
 
 class Login extends React.Component {
     constructor(props) {
@@ -17,34 +17,47 @@ password:true
     }
     state = {  }
 
-    _handleSubmit=(values)=>{
-        auth()
-        .signInWithEmailAndPassword(values.email, values.password)
-        .then(() => {
-            this.props.navigation.reset({
-                index: 0,
-                routes: [{ name: 'Home' }],
-              });
-        })
-        .catch(error => {
-          
-      
-            Alert.alert(
-                "Error", 
-                "Make sure your e-mail or password is correct."             
-                ,[
-                  {
-                    text: 'Okey',
-                    onPress: () => {},
-                    
-                  },
-                ],
-                
-              );
-        return;
-      
-        });
-    }
+    _handleSubmit = async (values) => {
+      try {
+        await auth().signInWithEmailAndPassword(values.email, values.password);
+    
+        const user = firebase.auth().currentUser;
+        if (user) {
+          const fcmToken = await firebase.messaging().getToken();
+          const updateData = {
+            fcmToken: fcmToken,
+          };
+    
+          const userRef = firebase
+            .app()
+            .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+            .ref(`users/${user.uid}`);
+    
+          await userRef.update(updateData);
+          console.log('FCM Token güncellendi.');
+    
+          this.props.navigation.reset({
+            index: 0,
+            routes: [{ name: 'Home' }],
+          });
+        } else {
+          console.error('Kullanıcı bulunamadı.');
+        }
+      } catch (error) {
+        console.error('Giriş sırasında bir hata oluştu:', error);
+    
+        Alert.alert(
+          'Error',
+          'Make sure your e-mail or password is correct.',
+          [
+            {
+              text: 'Okey',
+              onPress: () => {},
+            },
+          ],
+        );
+      }
+    };
 
     showAlert = (baslik, icerik) => {
         Alert.alert(

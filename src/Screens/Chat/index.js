@@ -130,7 +130,7 @@ cancelDisconnect = (roomId) => {
             });
     };
 
-    handleSend = () => {
+    handleSend = async () => {
         const { text } = this.state;
         const { roomId, conversationId } = this.props.route.params;
     
@@ -140,13 +140,39 @@ cancelDisconnect = (roomId) => {
         const userName = user.displayName;
     
         const timestamp = firebase.database.ServerValue.TIMESTAMP; // Firebase tarafından sağlanan anlık zaman bilgisi
-
+    
         let newReference;
-
+        let token;
+    
         if (roomId) {
             newReference = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`messages/${roomId}`).push();
         } else if (conversationId) {
             newReference = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`conversations/${conversationId}/messages`).push();
+            try {
+                const snapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`conversations/${conversationId}/members`).once('value');
+                let otherUser = null;
+                snapshot.forEach(childSnapshot => {
+                    const userIds = childSnapshot.val();
+                    if (userIds !== userId) {
+                        otherUser = userIds;
+                    }
+                });
+    
+                if (otherUser) {
+                    const otherUserSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${otherUser}`).once('value');
+                    const otherUserData = otherUserSnapshot.val();
+                    if (otherUserData && otherUserData.fcmToken) {
+                        token = otherUserData.fcmToken;
+                        console.log("tokensss: " + token);
+                    } else {
+                        throw new Error('FCM token not found for the other user');
+                    }
+                } else {
+                    throw new Error('Other user not found in the conversation');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
         }
     
         newReference.set({
@@ -155,12 +181,32 @@ cancelDisconnect = (roomId) => {
             userName: userName,
             timestamp: timestamp, // Zaman damgası eklendi
         }).then(() => {
+            console.log("tokens: " + token);
+            if (token) {
+                fetch('http://192.168.0.23:3000/send-notification', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        token: token,
+                        title: `${userName}`,
+                        body: text
+                    })
+                }).then(response => response.json())
+                    .then(data => {
+                        console.log('Notification sent:', data);
+                    }).catch(error => {
+                        console.error('Error sending notification:', error);
+                    });
+            }
             this.setState({ text: '' });
         }).catch((error) => {
             alert("Error! Failed to send message");
             console.error("Error sending message:", error);
         });
     };
+    
 
     render() {
         const { text, messages, connectedUserCount } = this.state;

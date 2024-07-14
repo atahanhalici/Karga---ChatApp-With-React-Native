@@ -4,7 +4,7 @@ import { TextInput } from 'react-native-gesture-handler';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
 import auth, { firebase } from '@react-native-firebase/auth';
-
+import messaging from '@react-native-firebase/messaging'
 
 class Register extends React.Component {
     constructor(props) {
@@ -14,58 +14,58 @@ class Register extends React.Component {
                     }
     }
 
-    _handleSubmit=(values)=>{
-      console.log(values);
-        auth()
-  .createUserWithEmailAndPassword(values.email, values.password)
-  .then(() => {
-    const user=firebase.auth().currentUser;
-    user.updateProfile({displayName:values.username});
-    const timestamp = firebase.database.ServerValue.TIMESTAMP;
-    const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${user.uid}`);
-    userRef.set({
-        userId: user.uid,
-        userName: values.username,
-        createTime: timestamp,
-        lastOnlineTime: timestamp,
-        online: true,
-        friends:[],
-        bio:'Karga bir harika!'
-    }).then(() => {
-        // Başarıyla kaydedildiğinde yapılacak işlemler
-    }).catch((error) => {
-        // Hata durumunda yapılacak işlemler
-    });
-    this.props.navigation.reset({
-        index: 0,
-        routes: [{ name: 'Home' }],
-      });
-
-      
-  })
-  .catch(error => {
-   /* if (error.code === 'auth/email-already-in-use') {
-        alert('That email address is already in use!');
-    }
-
-    if (error.code === 'auth/invalid-email') {
-        alert('That email address is invalid!');
-    }*/
-    Alert.alert(
-        "Error", 
-        "Make sure that your e-mail address is correct and your password is longer than 6 characters. Please try again later.", 
-        [
-          {
-            text: 'Okey',
-            onPress: () => {},
-            
-          },
-        ],
+    _handleSubmit = async (values) => {
+      try {
+        console.log(values);
+        await auth().createUserWithEmailAndPassword(values.email, values.password);
         
-      );
-      return;
-  });
-    }
+        const user = firebase.auth().currentUser;
+        if (user) {
+          const fcmToken = await firebase.messaging().getToken()
+          console.log(fcmToken);
+          
+          await user.updateProfile({ displayName: values.username });
+    
+          const timestamp = firebase.database.ServerValue.TIMESTAMP;
+          const userRef = firebase
+            .app()
+            .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+            .ref(`users/${user.uid}`);
+    
+          await userRef.set({
+            userId: user.uid,
+            userName: values.username,
+            createTime: timestamp,
+            lastOnlineTime: timestamp,
+            online: true,
+            friends: [],
+            bio: 'Karga bir harika!',
+            fcmToken: fcmToken,
+          });
+    
+          this.props.navigation.reset({
+            index: 0,
+            routes: [{ name: 'Home' }],
+          });
+        } else {
+          console.error('User not found after registration');
+        }
+      } catch (error) {
+        console.error('Error during user registration:', error);
+        Alert.alert(
+          'Error',
+          'Make sure that your e-mail address is correct and your password is longer than 6 characters. Please try again later.',
+          [
+            {
+              text: 'Okey',
+              onPress: () => {},
+            },
+          ]
+        );
+      }
+    };
+    
+    
     state = {  }
     render() { 
         const {navigation}=this.props;
