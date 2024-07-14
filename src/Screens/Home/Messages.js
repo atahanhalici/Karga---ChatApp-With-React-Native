@@ -31,30 +31,64 @@ const Messages = () => {
                 Object.keys(conversationsData).map(async (conversationId) => {
                     const conversationRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/conversations/${conversationId}`);
                     
-                    const onMessagesChange = conversationRef.on('value', async snapshot => {
-                        const conversation = snapshot.val();
-                        if (conversation && conversation.members) {
-                            const friendId = conversation.members.find(id => id !== userId);
-                            const friendRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${friendId}`);
-                            const friendSnapshot = await friendRef.once('value');
-                            const friend = friendSnapshot.val();
+                    const conversationSnapshot = await conversationRef.once('value');
+                    const conversation = conversationSnapshot.val();
+                    
+                    if (conversation && conversation.members) {
+                        const friendId = conversation.members.find(id => id !== userId);
+                        const friendRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${friendId}`);
+                        const friendSnapshot = await friendRef.once('value');
+                        const friend = friendSnapshot.val();
 
-                            const messages = conversation.messages ? Object.entries(conversation.messages) : [];
-                            const sortedMessages = messages.sort(([keyA], [keyB]) => keyA.localeCompare(keyB));
-                            const lastMessage = sortedMessages.length > 0 ? sortedMessages[sortedMessages.length - 1][1].text : '';
+                        const messages = conversation.messages ? Object.entries(conversation.messages) : [];
+                        const sortedMessages = messages.sort(([keyA], [keyB]) => keyA.localeCompare(keyB));
+                        const lastMessage = sortedMessages.length > 0 ? sortedMessages[sortedMessages.length - 1][1].text : '';
 
-                            setConversations(prevConversations => {
-                                const updatedConversations = prevConversations.filter(conv => conv.conversationId !== conversationId);
-                                return [...updatedConversations, {
-                                    conversationId,
-                                    friend,
-                                    lastMessage,
-                                }];
-                            });
-                        }
-                    });
+                        // Okunmamış mesajları sayma
+                        const unreadMessagesCount = messages.reduce((count, [key, message]) => {
+                            if (message.userId !== userId && !message.read) {
+                                return count + 1;
+                            }
+                            return count;
+                        }, 0);
 
-                    return () => conversationRef.off('value', onMessagesChange);
+                        setConversations(prevConversations => {
+                            const updatedConversations = prevConversations.filter(conv => conv.conversationId !== conversationId);
+                            return [...updatedConversations, {
+                                conversationId,
+                                friend,
+                                lastMessage,
+                                unreadMessagesCount // Okunmamış mesaj sayısını ekle
+                            }];
+                        });
+
+                        conversationRef.on('value', snapshot => {
+                            const conversation = snapshot.val();
+                            if (conversation && conversation.messages) {
+                                const messages = Object.entries(conversation.messages);
+                                const sortedMessages = messages.sort(([keyA], [keyB]) => keyA.localeCompare(keyB));
+                                const lastMessage = sortedMessages.length > 0 ? sortedMessages[sortedMessages.length - 1][1].text : '';
+
+                                const unreadMessagesCount = messages.reduce((count, [key, message]) => {
+                                    if (message.userId !== userId && !message.read) {
+                                        return count + 1;
+                                    }
+                                    return count;
+                                }, 0);
+
+                                setConversations(prevConversations => {
+                                    const updatedConversations = prevConversations.filter(conv => conv.conversationId !== conversationId);
+                                    return [...updatedConversations, {
+                                        conversationId,
+                                        friend,
+                                        lastMessage,
+                                        unreadMessagesCount
+                                    }];
+                                });
+                            }
+                        });
+
+                    }
                 })
             );
         } catch (error) {
@@ -98,7 +132,6 @@ const Messages = () => {
             console.error("Unexpected error:", error);
         }
     };
-    
 
     const handleFriendPress = async (friend) => {
         const userId = firebase.auth().currentUser.uid;
@@ -170,7 +203,19 @@ const Messages = () => {
                         <View>
                             <Text style={styles.title}>{item.friend.userName}</Text>
                             <Text style={styles.name}>{item.lastMessage}</Text>
+                            
                         </View>
+                        <View style={{flex:1}}/>
+                        <View style={{ marginRight: 15 }}>
+  {item.unreadMessagesCount > 0 && (
+    <View style={{ backgroundColor: '#FF8400', borderRadius: 100, paddingHorizontal: 10, paddingVertical: 6 }}>
+      <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 13 }}>{item.unreadMessagesCount}</Text>
+    </View>
+  )}
+</View>
+
+
+                        
                     </TouchableOpacity>
                 )}
             />

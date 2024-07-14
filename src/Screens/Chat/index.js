@@ -80,7 +80,8 @@ cancelDisconnect = (roomId) => {
                         userName: item.val().userName,
                         userId: item.val().userId,
                         timestamp: item.val().timestamp, // Zaman damgasını dahil et
-                        id: item.key
+                        id: item.key,
+                        
                     });
                 });
                 // Tarihe göre sıralama
@@ -101,8 +102,22 @@ cancelDisconnect = (roomId) => {
             this.fetchConversationMessages(conversationId);
             this.handleJoinChat(conversationId);
             this.decreaseConversationUserStatus(conversationId);
+            this.markMessagesAsRead(conversationId);
         }
     }
+
+    markMessagesAsRead = (conversationId) => {
+        const userId = auth().currentUser.uid;
+        const messagesRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`conversations/${conversationId}/messages`);
+    
+        messagesRef.once('value', snapshot => {
+            snapshot.forEach((childSnapshot) => {
+                if (childSnapshot.val().userId !== userId && !childSnapshot.val().read) {
+                    childSnapshot.ref.update({ read: true });
+                }
+            });
+        });
+    };
      handleLeaveChat = async (conversationId) => {
         const userId = firebase.auth().currentUser.uid;
         const conversationRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/conversations/${conversationId}/userStatus/${userId}`);
@@ -163,7 +178,8 @@ this.handleLeaveChat(conversationId);
                         userName: item.val().userName,
                         userId: item.val().userId,
                         timestamp: item.val().timestamp, // Zaman damgasını dahil et
-                        id: item.key
+                        id: item.key,
+                        read:item.val().read
                     });
                 });
                 // Tarihe göre sıralama
@@ -178,14 +194,13 @@ this.handleLeaveChat(conversationId);
         const { roomId, conversationId } = this.props.route.params;
     
         const user = auth().currentUser;
-    
         const userId = user.uid;
         const userName = user.displayName;
-    
-        const timestamp = firebase.database.ServerValue.TIMESTAMP; // Firebase tarafından sağlanan anlık zaman bilgisi
+        const timestamp = firebase.database.ServerValue.TIMESTAMP;
     
         let newReference;
         let token;
+        let read = false;
     
         if (roomId) {
             newReference = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`messages/${roomId}`).push();
@@ -207,14 +222,19 @@ this.handleLeaveChat(conversationId);
                     if (otherUserData && otherUserData.fcmToken) {
                         token = otherUserData.fcmToken;
     
-                        // Check if the other user is in the chat
                         const userStatusSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/conversations/${conversationId}/userStatus/${otherUser}`).once('value');
                         const userStatus = userStatusSnapshot.val();
-
+    
+                        const otherUserLastLeftSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/conversations/${conversationId}/userStatus/${otherUser}/lastLeft`).once('value');
+                        const otherUserLastLeft = otherUserLastLeftSnapshot.val();
+    
                         console.log(userStatus);
     
                         if (userStatus && userStatus.inChat) {
+                            read = true;
                             token = null; // If the user is in the chat, do not send a notification
+                        } else if (timestamp <= otherUserLastLeft) {
+                            read = true;
                         }
                     } else {
                         throw new Error('FCM token not found for the other user');
@@ -227,12 +247,18 @@ this.handleLeaveChat(conversationId);
             }
         }
     
-        newReference.set({
+        let messageData = {
             text: text,
             userId: userId,
             userName: userName,
-            timestamp: timestamp, // Zaman damgası eklendi
-        }).then(() => {
+            timestamp: timestamp
+        };
+    
+        if (conversationId) {
+            messageData.read = read; // Sadece conversation için read ekle
+        }
+    
+        newReference.set(messageData).then(() => {
             if (token) {
                 fetch('http://192.168.0.23:3000/send-notification', {
                     method: 'POST',

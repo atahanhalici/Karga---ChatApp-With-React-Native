@@ -7,10 +7,22 @@ import auth from '@react-native-firebase/auth'
 const Message=({item,index})=>{
   const user = auth().currentUser;
   const userId = user.uid;
+  console.log(item);
     return (<View style={(userId!=item.userId)?style.other:style.me}>
        <View style={[style.bubble,{borderTopRightRadius:(userId==item.userId)?0:15,borderTopLeftRadius:(userId==item.userId)?15:0, backgroundColor:(userId==item.userId)?'#FF8400':'#ddd'}]}> 
         <Text style={{color:(userId==item.userId)?'white':'#575757', fontSize:15, marginBottom:8}}>{item.text}</Text>
-        <Text style={{color:(userId==item.userId)?'white':'#575757', textAlign:(userId==item.userId)?'right':'left', fontSize:11}}>{item.userName}</Text>
+        <View style={{ flexDirection:  'row' , justifyContent: 'space-between' }}>
+        <Text style={{ color: userId === item.userId ? 'white' : '#575757', textAlign: userId === item.userId ? 'right' : 'left', fontSize: 11 }}>
+    {item.userName}
+  </Text>
+  
+  {userId === item.userId &&  (
+    <Icon name={'check'} size={11} style={{color:(item.read)? '#0f73ae':'black' ,marginLeft:10}} />
+  )}
+ 
+  
+</View>
+
         </View>
         </View>)
 }

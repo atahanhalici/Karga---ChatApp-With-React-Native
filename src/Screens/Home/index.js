@@ -20,6 +20,28 @@ class Home extends Component {
         };
     }
 
+    componentDidMount(){
+this.setUserOnline();
+this.setUserOnlineControl();
+    }
+
+    setUserOnline = async()=>{
+        const userId = firebase.auth().currentUser.uid;
+        const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`);
+        await userRef.update({ online: true,
+            lastOnlineTime: null});
+    }
+
+    setUserOnlineControl = () => {
+        const userId = firebase.auth().currentUser.uid;
+        const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`);
+        
+        userRef.onDisconnect().update({
+            online: false,
+            lastOnlineTime: firebase.database.ServerValue.TIMESTAMP
+        });
+    };
+
     logout = () => {
         auth().signOut().then(() => {
             this.props.navigation.reset({
