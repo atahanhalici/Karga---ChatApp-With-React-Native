@@ -30,12 +30,30 @@ class Chat extends Component {
     });
 };
 
+decreaseConversationUserStatus = (conversationId) => {
+    const userId = firebase.auth().currentUser.uid;
+    const conversationRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/conversations/${conversationId}/userStatus/${userId}`);
+    
+    conversationRef.onDisconnect().update({
+        inChat: false,
+        lastLeft: firebase.database.ServerValue.TIMESTAMP
+    });
+};
+
 cancelDisconnect = (roomId) => {
     const roomRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`rooms/${roomId}`);
         
             roomRef.onDisconnect().cancel(); // Firebase'de onDisconnect'i iptal et
         
     };
+
+    cancelDisconnectConversation = (conversationId) => {
+        const userId = firebase.auth().currentUser.uid;
+        const conversationRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/conversations/${conversationId}/userStatus/${userId}`);
+            
+                conversationRef.onDisconnect().cancel(); // Firebase'de onDisconnect'i iptal et
+            
+        };
 
     renderItem = ({ item, index }) => {
         return <Message item={item} index={index}></Message>;
@@ -81,15 +99,30 @@ cancelDisconnect = (roomId) => {
             this.decreaseConnectedUserCount(roomId);
         } else if (conversationId) {
             this.fetchConversationMessages(conversationId);
+            this.handleJoinChat(conversationId);
+            this.decreaseConversationUserStatus(conversationId);
         }
     }
-
+     handleLeaveChat = async (conversationId) => {
+        const userId = firebase.auth().currentUser.uid;
+        const conversationRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/conversations/${conversationId}/userStatus/${userId}`);
+        
+        await conversationRef.update({
+            inChat: false,
+            lastLeft: firebase.database.ServerValue.TIMESTAMP
+        });
+        
+        console.log(`User ${userId} left conversation ${conversationId}`);
+    };
     componentWillUnmount() {
-        const { roomId } = this.props.route.params;
+        const { roomId , conversationId} = this.props.route.params;
         if (roomId) {
             this.cancelDisconnect(roomId);
             this.leaveRoom(roomId);
 
+        }else{
+            this.cancelDisconnectConversation(conversationId);
+this.handleLeaveChat(conversationId);
         }
     }
 
@@ -99,7 +132,17 @@ cancelDisconnect = (roomId) => {
             return (count || 0) + 1;
         });
     };
-
+     handleJoinChat = async (conversationId) => {
+        const userId = firebase.auth().currentUser.uid;
+        const conversationRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/conversations/${conversationId}/userStatus/${userId}`);
+        
+        await conversationRef.update({
+            inChat: true,
+            lastLeft: null
+        });
+        
+        console.log(`User ${userId} joined conversation ${conversationId}`);
+    };
     leaveRoom = async (roomId) => {
         const roomRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`rooms/${roomId}/connectedUserCount`);
         await roomRef.transaction(count => {
@@ -163,7 +206,16 @@ cancelDisconnect = (roomId) => {
                     const otherUserData = otherUserSnapshot.val();
                     if (otherUserData && otherUserData.fcmToken) {
                         token = otherUserData.fcmToken;
-                        console.log("tokensss: " + token);
+    
+                        // Check if the other user is in the chat
+                        const userStatusSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/conversations/${conversationId}/userStatus/${otherUser}`).once('value');
+                        const userStatus = userStatusSnapshot.val();
+
+                        console.log(userStatus);
+    
+                        if (userStatus && userStatus.inChat) {
+                            token = null; // If the user is in the chat, do not send a notification
+                        }
                     } else {
                         throw new Error('FCM token not found for the other user');
                     }
@@ -181,7 +233,6 @@ cancelDisconnect = (roomId) => {
             userName: userName,
             timestamp: timestamp, // Zaman damgası eklendi
         }).then(() => {
-            console.log("tokens: " + token);
             if (token) {
                 fetch('http://192.168.0.23:3000/send-notification', {
                     method: 'POST',
@@ -206,6 +257,7 @@ cancelDisconnect = (roomId) => {
             console.error("Error sending message:", error);
         });
     };
+    
     
 
     render() {

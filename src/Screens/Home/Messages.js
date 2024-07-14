@@ -104,7 +104,7 @@ const Messages = () => {
         const userId = firebase.auth().currentUser.uid;
         const conversationRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref('/conversations');
         const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}/conversations`);
-        
+    
         let conversationId;
     
         // Get user's conversations
@@ -127,19 +127,35 @@ const Messages = () => {
             conversationId = newConversationRef.key;
             await newConversationRef.set({
                 members: [userId, friend.userId].sort(),
-                messages: {}
+                messages: {},
+                userStatus: {
+                    [userId]: {
+                        inChat: true,
+                        lastLeft: null
+                    },
+                    [friend.userId]: {
+                        inChat: false, // or true if you want to mark them as in the chat initially
+                        lastLeft: null
+                    }
+                }
             });
     
             // Add conversation to users' list
             const friendRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${friend.userId}/conversations/${conversationId}`);
             await userRef.child(conversationId).set(true);
             await friendRef.set(true);
+        } else {
+            // Update user status to in chat
+            await conversationRef.child(`${conversationId}/userStatus/${userId}`).update({
+                inChat: true,
+                lastLeft: null
+            });
         }
     
         // Navigate to chat page
         navigation.navigate('Chat', { conversationId, name: friend.userName });
     };
-
+    
     return (
         <View style={styles.container}>
             <FlatList
