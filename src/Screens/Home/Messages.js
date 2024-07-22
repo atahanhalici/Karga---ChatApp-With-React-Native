@@ -12,9 +12,9 @@ const Messages = () => {
     const [friends, setFriends] = useState([]);
     const [conversations, setConversations] = useState([]);
     const navigation = useNavigation();
-
+    const userId = firebase.auth().currentUser.uid;
     useEffect(() => {
-        const userId = firebase.auth().currentUser.uid;
+
         const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}/conversations`);
         
         const onConversationsChange = userRef.on('value', snapshot => {
@@ -29,21 +29,28 @@ const Messages = () => {
         try {
             await Promise.all(
                 Object.keys(conversationsData).map(async (conversationId) => {
-                    const conversationRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/conversations/${conversationId}`);
+                    const conversationRef = firebase
+                        .app()
+                        .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                        .ref(`/conversations/${conversationId}`);
                     
                     const conversationSnapshot = await conversationRef.once('value');
                     const conversation = conversationSnapshot.val();
+                    console.log(conversation);
                     
                     if (conversation && conversation.members) {
                         const friendId = conversation.members.find(id => id !== userId);
-                        const friendRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${friendId}`);
+                        const friendRef = firebase
+                            .app()
+                            .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                            .ref(`/users/${friendId}`);
                         const friendSnapshot = await friendRef.once('value');
                         const friend = friendSnapshot.val();
-
+    
                         const messages = conversation.messages ? Object.entries(conversation.messages) : [];
                         const sortedMessages = messages.sort(([keyA], [keyB]) => keyA.localeCompare(keyB));
-                        const lastMessage = sortedMessages.length > 0 ? sortedMessages[sortedMessages.length - 1][1].text : '';
-
+                        const lastMessage = sortedMessages.length > 0 ? sortedMessages[sortedMessages.length - 1][1] : {'messageType':"text","text":""};
+    
                         // Okunmamış mesajları sayma
                         const unreadMessagesCount = messages.reduce((count, [key, message]) => {
                             if (message.userId !== userId && !message.read) {
@@ -51,43 +58,47 @@ const Messages = () => {
                             }
                             return count;
                         }, 0);
-
-                        setConversations(prevConversations => {
+    
+                        const updateConversations = (prevConversations) => {
                             const updatedConversations = prevConversations.filter(conv => conv.conversationId !== conversationId);
-                            return [...updatedConversations, {
+                            const newConversation = {
                                 conversationId,
                                 friend,
                                 lastMessage,
-                                unreadMessagesCount // Okunmamış mesaj sayısını ekle
-                            }];
-                        });
-
+                                unreadMessagesCount,
+                                lastMessageTime: conversation.lastMessageTime // lastMessageTime'ı ekleyin
+                            };
+                            return [...updatedConversations, newConversation].sort((a, b) => b.lastMessageTime - a.lastMessageTime);
+                        };
+    
+                        setConversations(updateConversations);
+    
                         conversationRef.on('value', snapshot => {
                             const conversation = snapshot.val();
                             if (conversation && conversation.messages) {
                                 const messages = Object.entries(conversation.messages);
                                 const sortedMessages = messages.sort(([keyA], [keyB]) => keyA.localeCompare(keyB));
-                                const lastMessage = sortedMessages.length > 0 ? sortedMessages[sortedMessages.length - 1][1].text : '';
-
+                                const lastMessage = sortedMessages.length > 0 ? sortedMessages[sortedMessages.length - 1][1] : {'messageType':"text","text":""};
                                 const unreadMessagesCount = messages.reduce((count, [key, message]) => {
                                     if (message.userId !== userId && !message.read) {
                                         return count + 1;
                                     }
                                     return count;
                                 }, 0);
-
+    
                                 setConversations(prevConversations => {
                                     const updatedConversations = prevConversations.filter(conv => conv.conversationId !== conversationId);
-                                    return [...updatedConversations, {
+                                    const newConversation = {
                                         conversationId,
                                         friend,
                                         lastMessage,
-                                        unreadMessagesCount
-                                    }];
+                                        unreadMessagesCount,
+                                        lastMessageTime: conversation.lastMessageTime // lastMessageTime'ı ekleyin
+                                    };
+                                    return [...updatedConversations, newConversation].sort((a, b) => b.lastMessageTime - a.lastMessageTime);
                                 });
                             }
                         });
-
                     }
                 })
             );
@@ -95,6 +106,7 @@ const Messages = () => {
             console.error("Error fetching conversations:", error);
         }
     };
+    
 
     const toggleModal = () => {
         setIsModalVisible(!isModalVisible);
@@ -107,12 +119,12 @@ const Messages = () => {
         try {
             const userId = firebase.auth().currentUser.uid;
             const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`);
-            
+            var friendsRef;
             const onValueChange = userRef.on('value', snapshot => {
                 const userData = snapshot.val();
                 if (userData && userData.friends) {
                     const friendIds = userData.friends;
-                    const friendsRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref('/users');
+                    friendsRef  = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref('/users');
                     
                     friendsRef.on('value', snapshot => {
                         const allUsers = snapshot.val();
@@ -202,7 +214,13 @@ const Messages = () => {
                         <Icon name={'crow'} size={30} style={{ paddingRight: 15 }} />
                         <View>
                             <Text style={styles.title}>{item.friend.userName}</Text>
-                            <Text style={styles.name}>{item.lastMessage}</Text>
+                            <Text style={styles.name}>
+  {item.lastMessage.messageType == "vibration" 
+    ? (item.lastMessage.userId == userId 
+      ? `${item.friend.userName} kullanıcısını titrettiniz` 
+      : `${item.friend.userName} sizi titretti`) 
+    : item.lastMessage.text}
+</Text>
                             
                         </View>
                         <View style={{flex:1}}/>

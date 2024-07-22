@@ -21,7 +21,7 @@ class Splash extends React.Component {
               routes: [{ name: 'Login' }],
             });
           }
-        }, 3000); // 3 saniye bekletmek için 3000 milisaniye kullanıyoruz
+        }, 500); // 3 saniye bekletmek için 3000 milisaniye kullanıyoruz
       }
     
       render() { 

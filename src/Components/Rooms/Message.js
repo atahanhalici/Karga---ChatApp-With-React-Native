@@ -1,51 +1,77 @@
-import React from "react";
-import { TouchableOpacity,Text, StyleSheet,Dimensions,View } from "react-native";
-import Icon from 'react-native-vector-icons/FontAwesome5'
-import auth from '@react-native-firebase/auth'
+import React, { useState, useEffect } from "react";
+import { TouchableOpacity, Text, StyleSheet, Dimensions, View, Vibration } from "react-native";
+import Icon from 'react-native-vector-icons/FontAwesome5';
+import auth from '@react-native-firebase/auth';
+import firebase from '@react-native-firebase/app';
 
+const Message = ({ item, index, otherUser,isConversation  }) => {
+    const user = auth().currentUser;
+    const userId = user.uid;
+    const [lastVibrated, setLastVibrated] = useState(null);
 
-const Message=({item,index})=>{
-  const user = auth().currentUser;
-  const userId = user.uid;
-  console.log(item);
-    return (<View style={(userId!=item.userId)?style.other:style.me}>
-       <View style={[style.bubble,{borderTopRightRadius:(userId==item.userId)?0:15,borderTopLeftRadius:(userId==item.userId)?15:0, backgroundColor:(userId==item.userId)?'#FF8400':'#ddd'}]}> 
-        <Text style={{color:(userId==item.userId)?'white':'#575757', fontSize:15, marginBottom:8}}>{item.text}</Text>
-        <View style={{ flexDirection:  'row' , justifyContent: 'space-between' }}>
-        <Text style={{ color: userId === item.userId ? 'white' : '#575757', textAlign: userId === item.userId ? 'right' : 'left', fontSize: 11 }}>
-    {item.userName}
-  </Text>
-  
-  {userId === item.userId &&  (
-    <Icon name={'check'} size={11} style={{color:(item.read)? '#0f73ae':'black' ,marginLeft:10}} />
-  )}
- 
-  
-</View>
+    // Determine the message text based on type and user ID
+    let messageText = item.text;
+    if (item.messageType === "vibration") {
+        if (item.userId !== userId) {
+            messageText = `${item.userName} sizi titretti`;
+            const messageDate = new Date(item.timestamp);
+            const now = Date.now();
+            const timeSinceMessage = now - messageDate;
 
+            // Check if the message is within the last 2 seconds and hasn't been vibrated for yet
+            if (timeSinceMessage < 2000 && (!lastVibrated || messageDate > lastVibrated)) {
+                console.log("Vibrating for new message");
+                Vibration.vibrate(1000);
+                setLastVibrated(messageDate); // Update the last vibrated message timestamp
+            }
+        } else {
+            messageText = `${otherUser} kullanıcısını titrettiniz`;
+        }
+    }
+
+    return (
+        <View style={(userId !== item.userId) ? style.other : style.me}>
+            <View style={[style.bubble, {
+                borderTopRightRadius: (userId === item.userId) ? 0 : 15,
+                borderTopLeftRadius: (userId === item.userId) ? 15 : 0,
+                backgroundColor: (userId === item.userId) ? '#FF8400' : '#ddd'
+            }]}>
+                <Text style={{ color: (userId === item.userId) ? 'white' : '#575757', fontSize: 15, marginBottom: 8 }}>
+                    {messageText}
+                </Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ color: userId === item.userId ? 'white' : '#575757', textAlign: userId === item.userId ? 'right' : 'left', fontSize: 11 }}>
+                        {item.userName}
+                    </Text>
+
+                    {isConversation && userId === item.userId && (
+                        <Icon name={'check'} size={11} style={{ color: (item.read) ? '#0f73ae' : 'black', marginLeft: 10 }} />
+                    )}
+                </View>
+            </View>
         </View>
-        </View>)
+    );
 }
 
-const style=StyleSheet.create({
-  other:{
-    flexDirection:'row',
-    flex:1,
-    justifyContent:'flex-start'
-  },
-  me:{ flexDirection:'row',
-    flex:1,
-    justifyContent:'flex-end'
-},
-  bubble:{
-padding:10,
-backgroundColor:'#ddd',
-maxWidth:Dimensions.get('window').width*0.7,
-marginBottom:10,
-borderRadius:15,
-margin:10
-
+const style = StyleSheet.create({
+    other: {
+        flexDirection: 'row',
+        flex: 1,
+        justifyContent: 'flex-start'
+    },
+    me: {
+        flexDirection: 'row',
+        flex: 1,
+        justifyContent: 'flex-end'
+    },
+    bubble: {
+        padding: 10,
+        backgroundColor: '#ddd',
+        maxWidth: Dimensions.get('window').width * 0.7,
+        marginBottom: 10,
+        borderRadius: 15,
+        margin: 10
     }
-})
+});
 
 export default Message;
