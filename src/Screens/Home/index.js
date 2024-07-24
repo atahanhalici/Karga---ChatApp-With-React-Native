@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, Animated, TextInput, Dimensions } from 'react-native';
+import { View, TouchableOpacity, Text, StyleSheet, Animated, TextInput, Dimensions, Modal, TouchableWithoutFeedback, FlatList } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import auth from '@react-native-firebase/auth';
@@ -17,30 +17,133 @@ class Home extends Component {
             selectedTab: 'Messages',
             searchBarHeight: new Animated.Value(0),
             isSearchBarVisible: false,
+            isNotificationMenuVisible: false,
+            notifications: [],
         };
     }
 
-    componentDidMount(){
-this.setUserOnline();
-this.setUserOnlineControl();
+    componentDidMount() {
+        this.setUserOnline();
+        this.setUserOnlineControl();
+        this.fetchNotifications();
     }
 
-    setUserOnline = async()=>{
+    setUserOnline = async () => {
         const userId = firebase.auth().currentUser.uid;
         const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`);
-        await userRef.update({ online: true,
-            lastOnlineTime: null});
+        await userRef.update({ online: true, lastOnlineTime: null });
     }
 
     setUserOnlineControl = () => {
         const userId = firebase.auth().currentUser.uid;
         const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`);
-        
+
         userRef.onDisconnect().update({
             online: false,
             lastOnlineTime: firebase.database.ServerValue.TIMESTAMP
         });
     };
+
+    fetchNotifications = () => {
+        const userId = firebase.auth().currentUser.uid;
+        const notificationsRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}/notifications`);
+
+        notificationsRef.on('value', snapshot => {
+            const notificationsData = snapshot.val();
+            if (notificationsData) {
+                const notifications = Object.keys(notificationsData).map(key => ({
+                    id: key,
+                    ...notificationsData[key],
+                }));
+                this.setState({ notifications });
+            } else {
+                this.setState({ notifications: [] });
+            }
+        });
+    }
+
+    handleAccept = async (groupId, userId) => {
+
+        console.log(groupId);
+        const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}`);
+        await groupRef.child('members').once('value').then(async (snapshot) => {
+            const members = snapshot.val() || [];
+            if (!members.includes(userId)) {
+                members.push(userId);
+                await groupRef.update({ members: members.sort() });
+            }
+        });
+
+        const userStatusUpdate = {
+            [userId]: {
+                inChat: false,
+                lastLeft: null,
+                write: false
+            }
+        };
+
+        await groupRef.child('userStatus').update(userStatusUpdate);
+        const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`);
+
+        // groupId'yi kullanıcı verisine eklemek için
+        await userRef.once('value').then(async (snapshot) => {
+            const userData = snapshot.val() || {};
+            
+            // Yeni groupId ve değeri true olarak ekleyin
+            const updatedGroups = { ...userData.groups, [groupId]: true };
+        
+            // Kullanıcı verisini güncelleyin
+            await userRef.update({ groups: updatedGroups });
+        });
+        
+
+        const userRefs = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}/notifications`);
+
+        await userRefs.once('value').then(async (snapshot) => {
+            const notifications = snapshot.val() || {};
+            
+            // Eşleşen id'yi bulmak için döngü
+            const updates = {};
+            
+            for (const key in notifications) {
+                if (notifications[key].id === groupId) {
+                    // Eşleşen nesneyi silmek için key değerini kaydedin
+                    updates[key] = null;
+                }
+            }
+            
+            // Silme işlemini gerçekleştirin
+            if (Object.keys(updates).length > 0) {
+                await userRefs.update(updates);
+            }
+        });
+
+
+    }
+
+    handleReject = async (groupId, userId) =>{
+        const userRefs = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}/notifications`);
+
+        await userRefs.once('value').then(async (snapshot) => {
+            const notifications = snapshot.val() || {};
+            
+            // Eşleşen id'yi bulmak için döngü
+            const updates = {};
+            
+            for (const key in notifications) {
+                if (notifications[key].id === groupId) {
+                    // Eşleşen nesneyi silmek için key değerini kaydedin
+                    updates[key] = null;
+                }
+            }
+            
+            // Silme işlemini gerçekleştirin
+            if (Object.keys(updates).length > 0) {
+                await userRefs.update(updates);
+            }
+        });
+
+    }
 
     logout = () => {
         auth().signOut().then(() => {
@@ -74,6 +177,14 @@ this.setUserOnlineControl();
         }
     }
 
+    toggleNotificationMenu = () => {
+        this.setState({ isNotificationMenuVisible: !this.state.isNotificationMenuVisible });
+    }
+
+    closeNotificationMenu = () => {
+        this.setState({ isNotificationMenuVisible: false });
+    }
+
     renderContent = () => {
         const { selectedTab } = this.state;
         const { navigation } = this.props;
@@ -92,9 +203,36 @@ this.setUserOnlineControl();
         }
     }
 
+    renderNotification = ({ item, index }) => {
+        const { notifications } = this.state;
+        const userId = firebase.auth().currentUser.uid;
+        const isLastItem = index === notifications.length - 1;
+
+        return (
+            <View>
+                <View style={styles.notification}>
+                    {item.notificationType === "group" && (
+                        <Text style={styles.notificationText}>
+                            <Text style={{ fontWeight: 'bold' }}>{item.senderName}</Text> invites you to join the group <Text style={{ fontWeight: 'bold' }}>{item.name}</Text>
+                        </Text>
+                    )}
+                    <View style={styles.notificationActions}>
+                        <TouchableOpacity style={styles.notificationButton}  onPress={() => this.handleReject(item.id, userId)}>
+                            <Text style={styles.notificationButtonText}>Reject</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.notificationButton} onPress={() => this.handleAccept(item.id, userId)}>
+                            <Text style={styles.notificationButtonText}>Accept</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+                {!isLastItem && <View style={styles.divider} />}
+            </View>
+        );
+    };
+
     render() {
-        //this.logout();
-        const { selectedTab, searchBarHeight, isSearchBarVisible } = this.state;
+        const { selectedTab, searchBarHeight, isSearchBarVisible, isNotificationMenuVisible, notifications } = this.state;
+        const hasNotifications = notifications.length > 0;
         return (
             <LinearGradient
                 style={styles.background}
@@ -105,11 +243,17 @@ this.setUserOnlineControl();
                 <View style={{ marginHorizontal: 15, marginVertical: 20 }}>
                     <View style={[styles.header, { marginBottom: isSearchBarVisible ? 0 : 20 }]}>
                         <Text style={styles.title}>Karga</Text>
-                        <TouchableOpacity onPress={this.toggleSearchBar}>
-                            <Icon name={"search"} size={27} color={"white"} />
-                        </TouchableOpacity>
+                        <View style={styles.headerIcons}>
+                            <TouchableOpacity onPress={this.toggleNotificationMenu} style={styles.iconButton}>
+                                <Icon name={"bell"} size={27} color={"white"} />
+                                {hasNotifications && <View style={styles.notificationDot} />}
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={this.toggleSearchBar} style={styles.iconButton}>
+                                <Icon name={"search"} size={27} color={"white"} />
+                            </TouchableOpacity>
+                        </View>
                     </View>
-    
+
                     {isSearchBarVisible && (
                         <Animated.View style={[styles.searchBar, { height: searchBarHeight }]}>
                             <TextInput
@@ -119,6 +263,7 @@ this.setUserOnlineControl();
                             />
                         </Animated.View>
                     )}
+
                     <View style={styles.tabs}>
                         {['Messages', 'Groups', 'Rooms', 'Profile'].map((tab) => (
                             <TouchableOpacity
@@ -142,6 +287,29 @@ this.setUserOnlineControl();
                 <View style={styles.container}>
                     {this.renderContent()}
                 </View>
+
+                <Modal
+                    transparent={true}
+                    animationType="fade"
+                    visible={isNotificationMenuVisible}
+                    onRequestClose={this.closeNotificationMenu}
+                >
+                    <TouchableWithoutFeedback onPress={this.closeNotificationMenu}>
+                        <View style={styles.modalOverlay} />
+                    </TouchableWithoutFeedback>
+                    <View style={styles.notificationMenu}>
+                        <Text style={styles.notificationMenuTitle}>Notifications</Text>
+                        {notifications.length === 0 ? (
+                            <Text style={styles.noNotificationsText}>No notifications at the moment</Text>
+                        ) : (
+                            <FlatList
+                                data={notifications}
+                                renderItem={this.renderNotification}
+                                keyExtractor={item => item.id}
+                            />
+                        )}
+                    </View>
+                </Modal>
             </LinearGradient>
         );
     }
@@ -149,8 +317,19 @@ this.setUserOnlineControl();
 
 const styles = StyleSheet.create({
     background: { flex: 1 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     title: { fontSize: 27, fontWeight: '800', color: 'white' },
+    headerIcons: { flexDirection: 'row' },
+    iconButton: { marginLeft: 15 },
+    notificationDot: {
+        position: 'absolute',
+        top: 0,
+        right: -2,
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: 'red',
+    },
     searchBar: {
         backgroundColor: 'white',
         marginVertical: 10,
@@ -189,6 +368,68 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: 30,
         alignItems: 'center',
         paddingTop: 20,
+    },
+    modalOverlay: {
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: 'transparent',
+    },
+    notificationMenu: {
+        position: 'absolute',
+        top: 80,
+        right: 15,
+        backgroundColor: 'white',
+        borderRadius: 10,
+        width: 250,
+        maxHeight: Dimensions.get('window').height * 0.4, // Max height of 40% of screen height
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.8,
+        shadowRadius: 2,
+        elevation: 5,
+    },
+    notificationMenuTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        marginBottom: 2,
+        marginTop: 5
+    },
+    notification: {
+        padding: 15,
+    },
+    notificationText: {
+        fontSize: 16,
+        marginBottom: 10,
+    },
+    notificationActions: {
+        flexDirection: 'row',
+        justifyContent:'flex-end',
+    },
+    notificationButton: {
+        backgroundColor: '#FF8400',
+        borderRadius: 5,
+        paddingVertical: 5,
+        paddingHorizontal: 10,
+        marginLeft:5
+    },
+    notificationButtonText: {
+        color: 'white',
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#ddd',
+        marginVertical: 5,
+    },
+    noNotificationsText: {
+        textAlign: 'center',
+        marginTop: 20,
+        fontSize: 16,
+        color: '#888',
+        paddingBottom:15
     },
 });
 

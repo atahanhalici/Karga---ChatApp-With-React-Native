@@ -36,7 +36,6 @@ const Messages = () => {
                     
                     const conversationSnapshot = await conversationRef.once('value');
                     const conversation = conversationSnapshot.val();
-                    console.log(conversation);
                     
                     if (conversation && conversation.members) {
                         const friendId = conversation.members.find(id => id !== userId);
