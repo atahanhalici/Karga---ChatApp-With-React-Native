@@ -44,9 +44,13 @@ const Message = ({ item, index, otherUser,isConversation,read,isGroup  }) => {
                         {item.userName}
                     </Text>
 
-                    {isConversation || isGroup && userId === item.userId && (
-                        <Icon name={'check'} size={11} style={{ color: (read) ? '#0f73ae' : 'black', marginLeft: 10 }} />
-                    )}
+                    {(isConversation || isGroup) && userId === item.userId && (
+    <Icon
+        name={'check'}
+        size={11}
+        style={{ color: read ? '#0f73ae' : 'black', marginLeft: 10 }}
+    />
+)}
                 </View>
             </View>
         </View>

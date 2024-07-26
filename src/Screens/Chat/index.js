@@ -132,12 +132,12 @@ cancelDisconnect = (roomId) => {
             const isGroup = Boolean(groupId);
 
             if (conversationId) {
-                return <Message item={item} index={index} otherUser={name}   isConversation={isConversation}></Message>;
+                return <Message item={item} index={index} otherUser={name}   isConversation={isConversation} read={item.read}></Message>;
             } else if (roomId) {
                 return <Message item={item} index={index}></Message>;
             }
             else if(groupId){
-                return <Message item={item} index={index} isGroup={isGroup} read={item.read.length===this.state.allMembers.length}/>;
+                return <Message item={item} index={index} isGroup={isGroup} read={this.state.allMembers.every(member => item.read.includes(member))}/>;
             }
         };
         
@@ -652,8 +652,8 @@ this.handleLeaveChat(conversationId);
                             },
                             body: JSON.stringify({
                                 token: token,
-                                title: `${userName}`,
-                                body: text
+                                title: `${name}`,
+                                body: `${userName}: ${text}`
                             })
                         }).then(response => response.json())
                             .then(data => {
