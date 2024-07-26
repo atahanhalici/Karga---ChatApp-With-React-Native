@@ -20,35 +20,48 @@ class Chat extends Component {
             otherUserLastOnline:null,
             otherUserIsOnline:false,
             showTooltip: false,
-            userName:""
+            userName:"",
+            members: {},
+            allMembers:[]
         };
         this.typingTimeout = null;
     }
-    updateTypingStatus = async (conversationId, status) => {
+    updateTypingStatus = async (id, status, isGroup = false) => {
         const userId = firebase.auth().currentUser.uid;
-        const conversationRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/conversations/${conversationId}/userStatus/${userId}`);
-        
-        await conversationRef.update({ write: status });
+    
+        const path = isGroup 
+            ? `/groups/${id}/userStatus/${userId}` 
+            : `/conversations/${id}/userStatus/${userId}`;
+    
+        const ref = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(path);
+    
+        await ref.update({ write: status });
     }
-
+    
     handleTextInputChange = (text) => {
-        const { conversationId } = this.props.route.params;
+        const { conversationId, groupId } = this.props.route.params;
         this.setState({ text });
     
-        if (conversationId) {
+        if (conversationId || groupId) {
             clearTimeout(this.typingTimeout);
-            this.updateTypingStatus(conversationId, true);
+            const id = conversationId || groupId;
+            const isGroup = !!groupId;
+    
+            this.updateTypingStatus(id, true, isGroup);
             this.typingTimeout = setTimeout(() => {
-                this.updateTypingStatus(conversationId, false);
+                this.updateTypingStatus(id, false, isGroup);
             }, 2000); // Set typing status to false after 2 seconds of inactivity
         }
     }
-
+    
     handleTextInputEndEditing = () => {
-        const { conversationId } = this.props.route.params;
-        if (conversationId) {
+        const { conversationId, groupId } = this.props.route.params;
+        if (conversationId || groupId) {
             clearTimeout(this.typingTimeout);
-            this.updateTypingStatus(conversationId, false);
+            const id = conversationId || groupId;
+            const isGroup = !!groupId;
+    
+            this.updateTypingStatus(id, false, isGroup);
         }
     }
     
@@ -80,6 +93,16 @@ decreaseConversationUserStatus = (conversationId) => {
     });
 };
 
+decreaseGroupUserStatus = (groupId) => {
+    const userId = firebase.auth().currentUser.uid;
+    const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}/userStatus/${userId}`);
+    
+    groupRef.onDisconnect().update({
+        inChat: false,
+        lastLeft: firebase.database.ServerValue.TIMESTAMP
+    });
+};
+
 cancelDisconnect = (roomId) => {
     const roomRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`rooms/${roomId}`);
         
@@ -95,36 +118,74 @@ cancelDisconnect = (roomId) => {
             
         };
 
+        cancelDisconnectGroup = (groupId) => {
+            const userId = firebase.auth().currentUser.uid;
+            const conversationRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}/userStatus/${userId}`);
+                
+                    conversationRef.onDisconnect().cancel(); // Firebase'de onDisconnect'i iptal et
+                
+            };
+
         renderItem = ({ item, index }) => {
-            const { roomId, conversationId,name } = this.props.route.params;
+            const { roomId, conversationId,name, groupId} = this.props.route.params;
             const isConversation = Boolean(conversationId);
-        
+            const isGroup = Boolean(groupId);
+
             if (conversationId) {
                 return <Message item={item} index={index} otherUser={name}   isConversation={isConversation}></Message>;
             } else if (roomId) {
                 return <Message item={item} index={index}></Message>;
             }
+            else if(groupId){
+                return <Message item={item} index={index} isGroup={isGroup} read={item.read.length===this.state.allMembers.length}/>;
+            }
         };
         
         getStatusText = () => {
-            const { otherUserInWrite, otherUserInChat, otherUserIsOnline, otherUserLastOnline } = this.state;
-            
-            if (otherUserInWrite) {
-                return "Typing";
-            } else if (otherUserInChat) {
-                return "In Conversation";
-            } else if (otherUserIsOnline) {
-                return "Online";
-            } else {
-                return `Last Online: ${this.formatLastOnlineTime(otherUserLastOnline)}`;
+            const { otherUserInWrite, otherUserInChat, otherUserIsOnline, otherUserLastOnline, members } = this.state;
+            const { conversationId, groupId } = this.props.route.params;
+    
+            if (conversationId) {
+                if (otherUserInWrite) {
+                    return "Typing";
+                } else if (otherUserInChat) {
+                    return "In Conversation";
+                } else if (otherUserIsOnline) {
+                    return "Online";
+                } else {
+                    return `Last Online: ${this.formatLastOnlineTime(otherUserLastOnline)}`;
+                }
+            } else if (groupId) {
+                const writingMembers = Object.values(members).filter(member => member.write);
+                const chattingMembers = Object.values(members).filter(member => member.inChat);
+                const onlineMembers = Object.values(members).filter(member => member.online);
+    
+                if (writingMembers.length > 0) {
+                    if (writingMembers.length === 1) {
+                        return `${writingMembers[0].userName} is typing`;
+                    } else {
+                        return "Multiple people are typing";
+                    }
+                } else if (chattingMembers.length > 0) {
+                    if (chattingMembers.length === 1) {
+                        return `${chattingMembers[0].userName} is in conversation`;
+                    } else {
+                        return "Multiple people are in conversation";
+                    }
+                } else if (onlineMembers.length > 0) {
+                    return `${onlineMembers.length} people online`;
+                } else {
+                    return "No members online";
+                }
             }
-        }
-        
+            return "";
+        };
+    
         formatLastOnlineTime = (timestamp) => {
             const now = new Date();
             const lastOnline = new Date(timestamp);
             const diffInSeconds = Math.floor((now - lastOnline) / 1000);
-        
+    
             if (diffInSeconds < 60) {
                 return "just now";
             } else if (diffInSeconds < 3600) { // less than an hour
@@ -147,32 +208,35 @@ cancelDisconnect = (roomId) => {
                 return `${years} year${years > 1 ? 's' : ''} ago`;
             }
         }
-        
+    
         updateHeader = () => {
-            const { conversationId, name } = this.props.route.params;
+            const { conversationId, name, groupId } = this.props.route.params;
             this.props.navigation.setOptions({
                 headerTitle: () => (
                     <View>
                         <Text style={style.headerTitle}>{name}</Text>
-                        {conversationId && <Text style={style.headerSubtitle}>{this.getStatusText()}</Text>}
+                        {(conversationId || groupId) && (
+                            <Text style={style.headerSubtitle}>{this.getStatusText()}</Text>
+                        )}
                     </View>
                 ),
             });
-        }
-        
+        };
+    
         componentDidUpdate(prevProps, prevState) {
             if (
                 prevState.otherUserInWrite !== this.state.otherUserInWrite ||
                 prevState.otherUserInChat !== this.state.otherUserInChat ||
+                prevState.otherUserLastOnline !== this.state.otherUserLastOnline ||
                 prevState.otherUserIsOnline !== this.state.otherUserIsOnline ||
-                prevState.otherUserLastOnline !== this.state.otherUserLastOnline
+                prevState.members !== this.state.members
             ) {
                 this.updateHeader();
             }
         }
-        
+    
         componentDidMount() {
-            const { roomId, conversationId, name } = this.props.route.params;
+            const { roomId, conversationId, groupId } = this.props.route.params;
             this.updateHeader();
         
             if (roomId) {
@@ -209,8 +273,26 @@ cancelDisconnect = (roomId) => {
                 this.handleJoinChat(conversationId);
                 this.decreaseConversationUserStatus(conversationId);
                 this.markMessagesAsRead(conversationId);
+            }else if (groupId){
+                this.groupListen(groupId)
+                this.getAllMembers(groupId);
+                this.fetchGroupMessages(groupId);
+                this.handleJoinGroup(groupId);
+                this.decreaseGroupUserStatus(groupId);
+                this.markMessagesAsReadGroup(groupId);
             }
         }
+
+
+    getAllMembers =async (groupId)=>{
+        const membersRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`groups/${groupId}/members`);
+
+        // `members` düğümünü dinleyin
+        const onValueChange = membersRef.on('value', snapshot => {
+          const data = snapshot.val();
+          this.setState({allMembers:data})
+        });
+    }
 
     markMessagesAsRead = (conversationId) => {
         const userId = firebase.auth().currentUser.uid;
@@ -224,6 +306,27 @@ cancelDisconnect = (roomId) => {
             });
         });
     };
+
+
+     markMessagesAsReadGroup = (groupId) => {
+        const userId = firebase.auth().currentUser.uid;
+        const messagesRef = firebase
+            .app()
+            .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+            .ref(`groups/${groupId}/messages`);
+    
+        messagesRef.once('value', snapshot => {
+            snapshot.forEach((childSnapshot) => {
+                const message = childSnapshot.val();
+                if (message.userId !== userId && (!message.read || !Array.isArray(message.read) || !message.read.includes(userId))) {
+                    const readArray = Array.isArray(message.read) ? message.read : [];
+                    readArray.push(userId);
+                    childSnapshot.ref.update({ read: readArray });
+                }
+            });
+        });
+    };
+    
      handleLeaveChat = async (conversationId) => {
         const userId = firebase.auth().currentUser.uid;
         const conversationRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/conversations/${conversationId}/userStatus/${userId}`);
@@ -233,18 +336,33 @@ cancelDisconnect = (roomId) => {
             lastLeft: firebase.database.ServerValue.TIMESTAMP
         });
         
-        console.log(`User ${userId} left conversation ${conversationId}`);
+
+    };
+
+    handleLeaveGroup = async (groupId) => {
+        const userId = firebase.auth().currentUser.uid;
+        const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}/userStatus/${userId}`);
+        
+        await groupRef.update({
+            inChat: false,
+            lastLeft: firebase.database.ServerValue.TIMESTAMP
+        });
+        
+
     };
     componentWillUnmount() {
-        const { roomId , conversationId} = this.props.route.params;
+        const { roomId , conversationId,groupId} = this.props.route.params;
         clearInterval(this.statusInterval);
         if (roomId) {
             this.cancelDisconnect(roomId);
             this.leaveRoom(roomId);
 
-        }else{
+        }else if(conversationId){
             this.cancelDisconnectConversation(conversationId);
 this.handleLeaveChat(conversationId);
+        }else if(groupId){
+            this.cancelDisconnectGroup(groupId);
+            this.handleLeaveGroup(groupId);
         }
     }
 
@@ -263,7 +381,19 @@ this.handleLeaveChat(conversationId);
             lastLeft: null
         });
         
-        console.log(`User ${userId} joined conversation ${conversationId}`);
+
+    };
+
+    handleJoinGroup = async (groupId) => {
+        const userId = firebase.auth().currentUser.uid;
+        const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}/userStatus/${userId}`);
+        
+        await groupRef.update({
+            inChat: true,
+            lastLeft: null
+        });
+        
+
     };
     leaveRoom = async (roomId) => {
         const roomRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`rooms/${roomId}/connectedUserCount`);
@@ -297,6 +427,32 @@ this.handleLeaveChat(conversationId);
             });
     };
 
+
+    fetchGroupMessages = (groupId) => {
+        firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+            .ref(`groups/${groupId}/messages`)
+            .orderByChild('timestamp') // timestamp alanına göre sıralama
+            .on('value', snapshot => {
+                var messages = [];
+                snapshot.forEach((item) => {
+                    messages.push({
+                        groupId: item.val().groupId,
+                        text: item.val().text,
+                        userName: item.val().userName,
+                        userId: item.val().userId,
+                        timestamp: item.val().timestamp, // Zaman damgasını dahil et
+                        id: item.key,
+                        read: item.val().read,
+                        messageType: item.val().messageType
+                    });
+                });
+                // Tarihe göre sıralama
+                messages.sort((a, b) => b.timestamp - a.timestamp);
+                
+                this.setState({ messages });
+            });
+    };
+
      otherUserListen = async (conversationId) => {
         const userId = auth().currentUser.uid;
         const db = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/');
@@ -321,7 +477,7 @@ this.handleLeaveChat(conversationId);
         otherUserRef.on('value', snapshot => {
             const userStatus = snapshot.val();
             this.setState({userName:userStatus.userName, otherUserIsOnline:userStatus.online, otherUserLastOnline:userStatus.lastOnlineTime})
-            console.log("bişeler olsu");
+          
         });
       
 
@@ -333,12 +489,74 @@ this.handleLeaveChat(conversationId);
         userStatusRef.on('value', snapshot => {
             const userStatus = snapshot.val();
             this.setState({ otherUserInChat: userStatus?.inChat || false, otherUserInWrite: userStatus?.write || false});
-            console.log(`Other user's chat status: ${this.state.otherUserInChat}`);
+         
         });
     };
+
+    groupListen = async (groupId) => {
+        try {
+            const userId = auth().currentUser.uid;
+            const db = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/');
+            
+            // Get all group member IDs
+            const snapshot = await db.ref(`groups/${groupId}/members`).once('value');
+            const members = [];
+            snapshot.forEach(childSnapshot => {
+                const memberId = childSnapshot.val();
+                if (memberId !== userId) {
+                    members.push(memberId);
+                }
+            });
+            
+            if (members.length === 0) {
+                console.error('No other members found');
+                return;
+            }
+    
+            // Listen to each member's status
+            members.forEach(memberId => {
+                // Get member data
+                const memberRef = db.ref(`users/${memberId}`);
+                memberRef.on('value', snapshot => {
+                    const userStatus = snapshot.val();
+                    this.setState(prevState => ({
+                        members: {
+                            ...prevState.members,
+                            [memberId]: {
+                                ...prevState.members[memberId],
+                                userName: userStatus?.userName,
+                                online: userStatus?.online,
+                                lastOnlineTime: userStatus?.lastOnlineTime
+                            }
+                        }
+                    }), this.updateHeader); // Ensure updateHeader is called after state update
+                });
+    
+                // Listen to member's status in the conversation
+                const userStatusRef = db.ref(`/groups/${groupId}/userStatus/${memberId}`);
+                userStatusRef.on('value', snapshot => {
+                    const userStatus = snapshot.val();
+                    this.setState(prevState => ({
+                        members: {
+                            ...prevState.members,
+                            [memberId]: {
+                                ...prevState.members[memberId],
+                                inChat: userStatus?.inChat || false,
+                                write: userStatus?.write || false,
+                            }
+                        }
+                    }), this.updateHeader); // Ensure updateHeader is called after state update
+                });
+            });
+        } catch (error) {
+            console.error('Error fetching group members or updating statuses:', error);
+        }
+    };
+    
+    
     handleSend = async (messageType = "text") => {
         const { text } = this.state;
-        const { roomId, conversationId,name } = this.props.route.params;
+        const { roomId, conversationId, groupId, name } = this.props.route.params;
     
         const user = auth().currentUser;
         const userId = user.uid;
@@ -381,7 +599,7 @@ this.handleLeaveChat(conversationId);
                         } else if (timestamp <= otherUserLastLeft) {
                             read = true;
                         } else if (messageType === "vibration" && !userStatus.inChat) {
-                           // alert(`${name} şu anda bu sohbette aktif değil`);
+                            // alert(`${name} şu anda bu sohbette aktif değil`);
                             return;
                         }
                     } else {
@@ -390,6 +608,59 @@ this.handleLeaveChat(conversationId);
                 } else {
                     throw new Error('Other user not found in the conversation');
                 }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        } else if (groupId) {
+            newReference = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`groups/${groupId}/messages`).push();
+            read = [];
+    
+            try {
+                const groupSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`groups/${groupId}/members`).once('value');
+                let tokens = [];
+    
+                const membersPromises = [];
+                groupSnapshot.forEach(childSnapshot => {
+                    const memberId = childSnapshot.val();
+                    membersPromises.push(
+                        firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`groups/${groupId}/userStatus/${memberId}`).once('value')
+                            .then(memberStatusSnapshot => {
+                                const memberStatus = memberStatusSnapshot.val();
+                                if (memberStatus && memberStatus.inChat) {
+                                    read.push(memberId);
+                                } else {
+                                    return firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${memberId}`).once('value')
+                                        .then(memberSnapshot => {
+                                            const memberData = memberSnapshot.val();
+                                            if (memberData && memberData.fcmToken) {
+                                                tokens.push(memberData.fcmToken);
+                                            }
+                                        });
+                                }
+                            })
+                    );
+                });
+    
+                await Promise.all(membersPromises);
+    
+                tokens.forEach(token => {
+                    if (messageType !== "vibration") {
+                        fetch('http://192.168.0.23:3000/send-notification', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                token: token,
+                                title: `${userName}`,
+                                body: text
+                            })
+                        }).then(response => response.json())
+                            .then(data => {
+                            }).catch(error => {
+                            });
+                    }
+                });
             } catch (error) {
                 console.error('Error:', error);
             }
@@ -404,28 +675,34 @@ this.handleLeaveChat(conversationId);
         };
     
         if (conversationId) {
-            messageData.read = read; // Sadece conversation için read ekle
+            messageData.read = read;
+        } else if (groupId) {
+            messageData.read = read;
         }
     
         newReference.set(messageData).then(() => {
-            const newReferencess = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`conversations/${conversationId}/`).update({lastMessageTime:timestamp});
-            if (token && messageType !== "vibration") {
-                fetch('http://192.168.0.23:3000/send-notification', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        token: token,
-                        title: `${userName}`,
-                        body: text
-                    })
-                }).then(response => response.json())
-                    .then(data => {
-                        console.log('Notification sent:', data);
-                    }).catch(error => {
-                        console.error('Error sending notification:', error);
-                    });
+            if (conversationId) {
+                firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`conversations/${conversationId}/`).update({ lastMessageTime: timestamp });
+                if (token && messageType !== "vibration") {
+                    fetch('http://192.168.0.23:3000/send-notification', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            token: token,
+                            title: `${userName}`,
+                            body: text
+                        })
+                    }).then(response => response.json())
+                        .then(data => {
+
+                        }).catch(error => {
+                       
+                        });
+                }
+            } else if (groupId) {
+                firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`groups/${groupId}/`).update({ lastMessageTime: timestamp });
             }
             this.setState({ text: '' });
         }).catch((error) => {
@@ -438,7 +715,6 @@ this.handleLeaveChat(conversationId);
     render() {
         const { text, messages, connectedUserCount, otherUserInChat, showTooltip } = this.state;
         const { roomId, conversationId } = this.props.route.params;
-        const isConversation = Boolean(conversationId);
         return (
             <SafeAreaView style={{ flex: 1 }}>
                 {roomId && (

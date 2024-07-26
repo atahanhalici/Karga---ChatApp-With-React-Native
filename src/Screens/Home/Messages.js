@@ -47,11 +47,11 @@ const Messages = () => {
                         const friend = friendSnapshot.val();
     
                         const messages = conversation.messages ? Object.entries(conversation.messages) : [];
-                        const sortedMessages = messages.sort(([keyA], [keyB]) => keyA.localeCompare(keyB));
+                        const sortedMessages = messages.sort(([, messageA], [, messageB]) => messageA.timestamp - messageB.timestamp);
                         const lastMessage = sortedMessages.length > 0 ? sortedMessages[sortedMessages.length - 1][1] : {'messageType':"text","text":""};
-    
-                        // Okunmamış mesajları sayma
-                        const unreadMessagesCount = messages.reduce((count, [key, message]) => {
+
+                        // Counting unread messages
+                        const unreadMessagesCount = messages.reduce((count, [, message]) => {
                             if (message.userId !== userId && !message.read) {
                                 return count + 1;
                             }
@@ -76,9 +76,9 @@ const Messages = () => {
                             const conversation = snapshot.val();
                             if (conversation && conversation.messages) {
                                 const messages = Object.entries(conversation.messages);
-                                const sortedMessages = messages.sort(([keyA], [keyB]) => keyA.localeCompare(keyB));
+                                const sortedMessages = messages.sort(([, messageA], [, messageB]) => messageA.timestamp - messageB.timestamp);
                                 const lastMessage = sortedMessages.length > 0 ? sortedMessages[sortedMessages.length - 1][1] : {'messageType':"text","text":""};
-                                const unreadMessagesCount = messages.reduce((count, [key, message]) => {
+                                const unreadMessagesCount = messages.reduce((count, [, message]) => {
                                     if (message.userId !== userId && !message.read) {
                                         return count + 1;
                                     }

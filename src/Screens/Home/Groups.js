@@ -20,10 +20,6 @@ const Groups = () => {
     const [filterInputHeight] = useState(new Animated.Value(0));
     const navigation = useNavigation();
 
-    useEffect(() => {
-        // İnternetten verileri çekme işlemini burada yapabilirsiniz
-        // Örneğin: firebase.firestore().collection('groups').get().then(snapshot => setGroups(snapshot.docs.map(doc => doc.data())));
-    }, []);
 
     useEffect(() => {
         setFilteredFriends(
@@ -32,6 +28,89 @@ const Groups = () => {
             )
         );
     }, [searchText, friends]);
+
+    
+    useEffect(() => {
+        const userGroupsRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}/groups`);
+        
+        const onGroupsChange = userGroupsRef.on('value', snapshot => {
+            const groupsData = snapshot.val() || {};
+            fetchGroups(groupsData, userId);
+        });
+    
+        return () => userGroupsRef.off('value', onGroupsChange);
+    }, [userId]);
+    
+    const fetchGroups = async (groupsData, userId) => {
+        try {
+            await Promise.all(
+                Object.keys(groupsData).map(async (groupId) => {
+                    const groupRef = firebase
+                        .app()
+                        .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                        .ref(`/groups/${groupId}`);
+                    
+                    const groupSnapshot = await groupRef.once('value');
+                    const group = groupSnapshot.val();
+    
+                    if (group) {
+                        const messages = group.messages ? Object.entries(group.messages) : [];
+                        const sortedMessages = messages.sort(([keyA], [keyB]) => keyA.localeCompare(keyB));
+                        const lastMessage = sortedMessages.length > 0 ? sortedMessages[sortedMessages.length - 1][1] : { messageType: "text", text: "" };
+    
+                        const unreadMessagesCount = messages.reduce((count, [key, message]) => {
+                            if (message.userId !== userId && !message.read.includes(userId)) {
+                                return count + 1;
+                            }
+                            return count;
+                        }, 0);
+    
+                        setGroups((prevGroups) => {
+                            const updatedGroups = prevGroups.filter(grp => grp.groupId !== groupId);
+                            const newGroup = {
+                                groupId,
+                                groupName: group.name,
+                                lastMessage,
+                                unreadMessagesCount,
+                                lastMessageTime: group.lastMessageTime
+                            };
+                            return [...updatedGroups, newGroup].sort((a, b) => b.lastMessageTime - a.lastMessageTime);
+                        });
+    
+                        groupRef.on('value', snapshot => {
+                            const updatedGroup = snapshot.val();
+                            if (updatedGroup && updatedGroup.messages) {
+                                const updatedMessages = Object.entries(updatedGroup.messages);
+                                const updatedSortedMessages = updatedMessages.sort(([keyA], [keyB]) => keyA.localeCompare(keyB));
+                                const updatedLastMessage = updatedSortedMessages.length > 0 ? updatedSortedMessages[updatedSortedMessages.length - 1][1] : { messageType: "text", text: "" };
+                                const updatedUnreadMessagesCount = updatedMessages.reduce((count, [key, message]) => {
+                                    if (message.userId !== userId && !message.read.includes(userId)) {
+                                        return count + 1;
+                                    }
+                                    return count;
+                                }, 0);
+    
+                                setGroups((prevGroups) => {
+                                    const updatedGroups = prevGroups.filter(grp => grp.groupId !== groupId);
+                                    const newGroup = {
+                                        groupId,
+                                        groupName: updatedGroup.name,
+                                        lastMessage: updatedLastMessage,
+                                        unreadMessagesCount: updatedUnreadMessagesCount,
+                                        lastMessageTime: updatedGroup.lastMessageTime
+                                    };
+                                    return [...updatedGroups, newGroup].sort((a, b) => b.lastMessageTime - a.lastMessageTime);
+                                });
+                            }
+                        });
+                    }
+                })
+            );
+        } catch (error) {
+            console.error("Error fetching groups:", error);
+        }
+    };
+    
 
     const toggleModal = () => {
         if (isModalVisible) {
@@ -92,6 +171,7 @@ const Groups = () => {
         }
     };
 
+
     const createGroup = async() => {
         if (!groupName.trim()) {
             Alert.alert('Hata', 'Lütfen bir grup adı girin.');
@@ -124,7 +204,7 @@ const Groups = () => {
         await userRef.child(groupId).set(true);
 
         const otherUserIds = selectedFriends.filter(friendId => friendId !== userId);
-        console.log('Diğer kullanıcıların ID\'leri:', otherUserIds);
+
         // Grubu oluşturma işlemini burada yapabilirsiniz
         // Örneğin: firebase.firestore().collection('groups').add({ groupName, members: selectedFriends });
         otherUserIds.forEach(async (otherUser) => {
@@ -152,9 +232,9 @@ const Groups = () => {
                 })
             }).then(response => response.json())
                 .then(data => {
-                    console.log('Notification sent:', data);
+
                 }).catch(error => {
-                    console.error('Error sending notification:', error);
+
                 });
         });
 
@@ -170,6 +250,7 @@ const Groups = () => {
         }).start();
     };
 
+
     return (
         <View style={styles.container}>
             <FlatList
@@ -178,17 +259,13 @@ const Groups = () => {
                 renderItem={({ item }) => (
                     <TouchableOpacity
                         style={styles.item}
-                        // onPress={() => navigation.navigate('Chat', { conversationId: item.conversationId, name: item.friend.userName })}
+                        onPress={() => navigation.navigate('Chat', { groupId: item.groupId, name: item.groupName })}
                     >
                         <Icon name={'crow'} size={30} style={{ paddingRight: 15 }} />
                         <View>
-                            <Text style={styles.title}>{item.friend.userName}</Text>
+                            <Text style={styles.title}>{item.groupName}</Text>
                             <Text style={styles.name}>
-                                {item.lastMessage.messageType == "vibration" 
-                                    ? (item.lastMessage.userId == userId 
-                                        ? `${item.friend.userName} kullanıcısını titrettiniz` 
-                                        : `${item.friend.userName} sizi titretti`) 
-                                    : item.lastMessage.text}
+                               {item.lastMessage.text}
                             </Text>
                         </View>
                         <View style={{ flex: 1 }} />

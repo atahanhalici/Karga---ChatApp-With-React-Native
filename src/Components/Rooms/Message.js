@@ -4,7 +4,7 @@ import Icon from 'react-native-vector-icons/FontAwesome5';
 import auth from '@react-native-firebase/auth';
 import firebase from '@react-native-firebase/app';
 
-const Message = ({ item, index, otherUser,isConversation  }) => {
+const Message = ({ item, index, otherUser,isConversation,read,isGroup  }) => {
     const user = auth().currentUser;
     const userId = user.uid;
     const [lastVibrated, setLastVibrated] = useState(null);
@@ -44,8 +44,8 @@ const Message = ({ item, index, otherUser,isConversation  }) => {
                         {item.userName}
                     </Text>
 
-                    {isConversation && userId === item.userId && (
-                        <Icon name={'check'} size={11} style={{ color: (item.read) ? '#0f73ae' : 'black', marginLeft: 10 }} />
+                    {isConversation || isGroup && userId === item.userId && (
+                        <Icon name={'check'} size={11} style={{ color: (read) ? '#0f73ae' : 'black', marginLeft: 10 }} />
                     )}
                 </View>
             </View>
