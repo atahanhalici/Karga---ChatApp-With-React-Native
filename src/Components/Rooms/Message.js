@@ -20,7 +20,6 @@ const Message = ({ item, index, otherUser,isConversation,read,isGroup  }) => {
 
             // Check if the message is within the last 2 seconds and hasn't been vibrated for yet
             if (timeSinceMessage < 2000 && (!lastVibrated || messageDate > lastVibrated)) {
-                console.log("Vibrating for new message");
                 Vibration.vibrate(1000);
                 setLastVibrated(messageDate); // Update the last vibrated message timestamp
             }

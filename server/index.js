@@ -4,7 +4,7 @@ const admin = require('firebase-admin');
 const app = express();
 const port = process.env.PORT || 3000;
 
-const serviceAccount = require('./karga-303a6-firebase-adminsdk-qwpe7-c32fada531.json');
+const serviceAccount = require('./karga-303a6-firebase-adminsdk-qwpe7-53ed378049.json');
 
 // Firebase Admin SDK'yı başlat
 admin.initializeApp({
@@ -19,9 +19,6 @@ app.post('/send-notification', (req, res) => {
   const { token, title, body } = req.body;
 
   if (!token || !title || !body) {
-    console.log(token);
-    console.log(title);
-    console.log(body);
     return res.status(400).send({ error: 'Missing required fields' });
   }
 

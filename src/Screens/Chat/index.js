@@ -1,8 +1,7 @@
 import React, { Component } from 'react';
-import { View, Text, StyleSheet, TextInput, FlatList, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, FlatList, SafeAreaView,Modal, TouchableOpacity,TouchableWithoutFeedback,SectionList} from 'react-native';
 import Message from '../../Components/Rooms/Message';
 import Icon from 'react-native-vector-icons/FontAwesome5';
-import { TouchableOpacity } from 'react-native-gesture-handler';
 import auth from '@react-native-firebase/auth';
 import firebase from '@react-native-firebase/app';
 
@@ -22,7 +21,13 @@ class Chat extends Component {
             showTooltip: false,
             userName:"",
             members: {},
-            allMembers:[]
+            allMembers:[],
+            friends: [],
+            showModal: false,
+            showModall: false,
+            selectedFriends: [], 
+            activeUsers:[],
+            sections:[]
         };
         this.typingTimeout = null;
     }
@@ -130,14 +135,19 @@ cancelDisconnect = (roomId) => {
             const { roomId, conversationId,name, groupId} = this.props.route.params;
             const isConversation = Boolean(conversationId);
             const isGroup = Boolean(groupId);
-
+            const userId = firebase.auth().currentUser.uid;
             if (conversationId) {
                 return <Message item={item} index={index} otherUser={name}   isConversation={isConversation} read={item.read}></Message>;
             } else if (roomId) {
                 return <Message item={item} index={index}></Message>;
             }
             else if(groupId){
-                return <Message item={item} index={index} isGroup={isGroup} read={this.state.allMembers.every(member => item.read.includes(member))}/>;
+                return <TouchableOpacity onLongPress={() => {
+                    if (item.userId === userId) {
+                        console.log("sa");
+                        this.openModall(item.id);
+                    }
+                }}><Message item={item} index={index} isGroup={isGroup} read={this.state.allMembers.every(member => item.read.includes(member))}/></TouchableOpacity>;
             }
         };
         
@@ -164,16 +174,21 @@ cancelDisconnect = (roomId) => {
                     if (writingMembers.length === 1) {
                         return `${writingMembers[0].userName} is typing`;
                     } else {
-                        return "Multiple people are typing";
+                        return "Multiple users are typing";
                     }
                 } else if (chattingMembers.length > 0) {
                     if (chattingMembers.length === 1) {
                         return `${chattingMembers[0].userName} is in conversation`;
                     } else {
-                        return "Multiple people are in conversation";
+                        return "Multiple users are in conversation";
                     }
                 } else if (onlineMembers.length > 0) {
-                    return `${onlineMembers.length} people online`;
+                    if (onlineMembers.length === 1) {
+                        return `${onlineMembers[0].userName} is online`;
+                    } else {
+                        return `${onlineMembers.length} users online`;
+                    }
+                  
                 } else {
                     return "No members online";
                 }
@@ -274,6 +289,8 @@ cancelDisconnect = (roomId) => {
                 this.decreaseConversationUserStatus(conversationId);
                 this.markMessagesAsRead(conversationId);
             }else if (groupId){
+             
+                this.activeUsersListen(groupId);
                 this.groupListen(groupId)
                 this.getAllMembers(groupId);
                 this.fetchGroupMessages(groupId);
@@ -710,11 +727,222 @@ this.handleLeaveChat(conversationId);
             console.error("Error sending message:", error);
         });
     };
+
+
+    activeUsersListen = (groupId) => {
+        try {
+            const userId = auth().currentUser.uid;
+            const db = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/');
+            
+            // Get all group member IDs
+            const groupMembersRef = db.ref(`groups/${groupId}/members`);
+            groupMembersRef.on('value', async (snapshot) => {
+                const members = [];
+                snapshot.forEach(childSnapshot => {
+                    const memberId = childSnapshot.val();
+                    if (memberId !== userId) {
+                        members.push(memberId);
+                    }
+                });
+                
+                if (members.length === 0) {
+                    console.error('No other members found');
+                    this.setState({ activeUsers: [] });
+                    return;
+                }
     
+                members.forEach(memberId => {
+                    // Get member data
+                    const memberRef = db.ref(`users/${memberId}`);
+                    memberRef.on('value', (memberSnapshot) => {
+                        const userStatus = memberSnapshot.val();
+                        
+                        // Get member's status in the group
+                        const userStatusRef = db.ref(`/groups/${groupId}/userStatus/${memberId}`);
+                        userStatusRef.on('value', (userStatusSnapshot) => {
+                            const groupStatus = userStatusSnapshot.val();
+                            
+                            this.setState(prevState => {
+                                const activeUsers = [...prevState.activeUsers];
+                                const selectedFriends = [...prevState.selectedFriends];
+                                
+                                // Check if the user is already in the activeUsers list
+                                const userIndex = activeUsers.findIndex(user => user.userId === memberId);
+                                
+                                if (groupStatus?.inChat) {
+                                    // User is in chat, add or update the user in the activeUsers list
+                                    if (userIndex !== -1) {
+                                        activeUsers[userIndex] = {
+                                            userId: memberId,
+                                            userName: userStatus?.userName,
+                                            online: userStatus?.online,
+                                            lastOnlineTime: userStatus?.lastOnlineTime,
+                                            inChat: groupStatus.inChat,
+                                            write: groupStatus?.write || false,
+                                            bio: userStatus?.bio
+                                        };
+                                    } else {
+                                        activeUsers.push({
+                                            userId: memberId,
+                                            userName: userStatus?.userName,
+                                            online: userStatus?.online,
+                                            lastOnlineTime: userStatus?.lastOnlineTime,
+                                            inChat: groupStatus.inChat,
+                                            write: groupStatus?.write || false,
+                                            bio: userStatus?.bio
+                                        });
+                                    }
+                                } else {
+                                    // User is not in chat, remove them from the activeUsers list
+                                    if (userIndex !== -1) {
+                                        activeUsers.splice(userIndex, 1);
+                                    }
+                                    
+                                    // Also remove user from selectedFriends if they are there
+                                    const selectedIndex = selectedFriends.indexOf(memberId);
+                                    if (selectedIndex !== -1) {
+                                        selectedFriends.splice(selectedIndex, 1);
+                                    }
+                                }
+                                
+                                return { activeUsers, selectedFriends };
+                            });
+                        });
+                    });
+                });
+            });
+    
+        } catch (error) {
+            console.error('Error fetching group members or updating statuses:', error);
+            this.setState({ activeUsers: [], selectedFriends: [] });
+        }
+    };
+    
+    openModal = async () => {
+        this.setState({ showModal: true });
+
+        
+
+    
+      /*  const allMembers = Object.keys(this.state.members);
+        console.log(allMembers);
+        const friends = [];
+    
+        for (const userId of allMembers) {
+            const snapshot = await firebase
+                .app()
+                .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .ref(`users/${userId}`)
+                .once('value');
+            if (snapshot.exists()) {
+                friends.push({ userId, ...snapshot.val() });
+            }
+        }
+
+    */
+
+    };
+
+    openModall = async (messageId) => {
+        this.setState({ showModall: true });
+        const { groupId } = this.props.route.params;
+        const userId = auth().currentUser.uid;
+        const db = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/');
+    
+        try {
+            // Listen for changes to the list of users who have read the message
+            const messageRef = db.ref(`groups/${groupId}/messages/${messageId}`);
+            messageRef.on('value', async (messageSnapshot) => {
+                const messageData = messageSnapshot.val();
+                const readList = messageData?.read || [];
+    
+                // Get the list of all group members
+                const groupMembersRef = db.ref(`groups/${groupId}/members`);
+                const groupMembersSnapshot = await groupMembersRef.once('value');
+                const groupMembers = [];
+                groupMembersSnapshot.forEach(childSnapshot => {
+                    const memberId = childSnapshot.val();
+                    if (memberId !== userId) {
+                        groupMembers.push(memberId);
+                    }
+                });
+    
+                // Separate members into readsList and notReadsList
+                const readsList = [];
+                const notReadsList = [];
+    
+                for (const memberId of groupMembers) {
+                    const memberRef = db.ref(`users/${memberId}`);
+                    const memberSnapshot = await memberRef.once('value');
+                    const memberData = memberSnapshot.val();
+    
+                    if (readList.includes(memberId)) {
+                        readsList.push({
+                            userId: memberId,
+                            userName: memberData?.userName,
+                            online: memberData?.online,
+                            lastOnlineTime: memberData?.lastOnlineTime,
+                            bio: memberData?.bio
+                        });
+                    } else {
+                        notReadsList.push({
+                            userId: memberId,
+                            userName: memberData?.userName,
+                            online: memberData?.online,
+                            lastOnlineTime: memberData?.lastOnlineTime,
+                            bio: memberData?.bio
+                        });
+                    }
+                }
+    
+                console.log('Okuyanlar Listesi:', readsList);
+                console.log('Okumayanlar Listesi:', notReadsList);
+    
+                const sections = [];
+    
+                if (readsList.length > 0) {
+                    sections.push({
+                        title: 'Seen',
+                        data: readsList,
+                    });
+                }
+    
+                if (notReadsList.length > 0) {
+                    sections.push({
+                        title: 'Not Seen',
+                        data: notReadsList,
+                    });
+                }
+    
+                this.setState({ sections });
+                console.log("sec" + sections.length);
+    
+            });
+    
+        } catch (error) {
+            console.error('Error fetching data:', error);
+    
+        }
+    };
+    
+    handleFriendPress = (item) => {
+        const { selectedFriends } = this.state;
+        const isSelected = selectedFriends.includes(item.userId);
+        const updatedSelectedFriends = isSelected
+            ? selectedFriends.filter(id => id !== item.userId)
+            : [...selectedFriends, item.userId];
+    
+        this.setState({ selectedFriends: updatedSelectedFriends });
+
+    };
     
     render() {
-        const { text, messages, connectedUserCount, otherUserInChat, showTooltip } = this.state;
-        const { roomId, conversationId } = this.props.route.params;
+        const { text, messages, connectedUserCount, otherUserInChat, showTooltip, showModal, selectedFriends,activeUsers,showModall,sections } = this.state;
+        const { roomId, conversationId, groupId } = this.props.route.params;
+        const inChatMembersCount = Object.values(this.state.members).filter(member => member.inChat).length;
+
+    
+    
         return (
             <SafeAreaView style={{ flex: 1 }}>
                 {roomId && (
@@ -732,31 +960,115 @@ this.handleLeaveChat(conversationId);
                 />
                 <View style={style.inputArea}>
                     <View style={{ alignItems: 'center', flexDirection: 'row' }}>
-                        <TextInput value={text} style={style.input} placeholder='Write message..'  onChangeText={this.handleTextInputChange}
-                            onEndEditing={this.handleTextInputEndEditing}></TextInput>
-                        <TouchableOpacity onPress={this.handleSend}>
+                        <TextInput
+                            value={text}
+                            style={style.input}
+                            placeholder='Write message..'
+                            onChangeText={this.handleTextInputChange}
+                            onEndEditing={this.handleTextInputEndEditing}
+                        />
+                        <TouchableOpacity onPress={()=>this.handleSend()}>
                             <Icon name={"paper-plane"} size={25} color='#FF8400'></Icon>
                         </TouchableOpacity>
-                        {conversationId && (
+                        {(conversationId || groupId) && (
                             <View style={{ position: 'relative' }}>
-                                <TouchableOpacity onPress={() => this.handleSend("vibration")} onPressIn={this.showTooltip}>
-                                    <Icon name="wave-square" size={24} color={otherUserInChat ? "#FF8400" : "gray"} style={{ padding: 10 }} />
+                                <TouchableOpacity onPress={() => (conversationId) ? !otherUserInChat ? this.showTooltip() : this.handleSend("vibration") : inChatMembersCount > 0 ? this.openModal() : this.showTooltip()}>
+                                    <Icon name="wave-square" size={24} color={(conversationId) ? otherUserInChat ? "#FF8400" : "gray" : inChatMembersCount > 0 ? "#FF8400" : "gray"} style={{ padding: 10 }} />
                                 </TouchableOpacity>
-                                {showTooltip && !otherUserInChat && (
+                                {showTooltip && (
                                     <View style={style.tooltip}>
-                                        <Text style={style.tooltipText}>{this.state.userName} şu anda sohbette değil</Text>
+                                        <Text style={style.tooltipText}>
+                                            {conversationId
+                                                ? `${this.state.userName} is currently not in chat`
+                                                : 'Currently, no one is in chat'}
+                                        </Text>
                                     </View>
                                 )}
                             </View>
                         )}
                     </View>
                 </View>
+    
+                <Modal
+                visible={showModal}
+                transparent={true}
+                animationType="fade"
+            >
+                <TouchableWithoutFeedback onPress={() => this.setState({ showModal: false,   selectedFriends:[]  })}>
+                    <View style={style.modalBackground}>
+                        <TouchableWithoutFeedback onPress={() => this.setState({ showModal: false,   selectedFriends:[]  })}>
+                            <View style={style.modalContainer}>
+                                <Text style={style.modalTitle}>Users in Chat</Text>
+                                <FlatList
+                                    data={activeUsers}
+                                    keyExtractor={(item) => item.userId}
+                                    renderItem={({ item }) => (
+                                        <TouchableOpacity
+                                            style={[style.item, selectedFriends.includes(item.userId) && style.selectedItem]}
+                                            onPress={() => this.handleFriendPress(item)}
+                                        >
+                                            <Icon name={'crow'} size={30} style={{ paddingRight: 15 }} />
+                                            <View>
+                                                <Text style={style.title}>{item.userName}</Text>
+                                                <Text style={style.name}>{item.bio}</Text>
+                                            </View>
+                                           
+                                        </TouchableOpacity>
+                                    )}
+                                />
+                                <TouchableOpacity style={style.vibrateButton} onPress={() => {}}>
+                                    <Text style={style.vibrateButtonText}>Vibrate</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </TouchableWithoutFeedback>
+                    </View>
+                </TouchableWithoutFeedback>
+            </Modal>
+
+            <Modal
+    visible={showModall}
+    transparent={true}
+    animationType="fade"
+>
+    <TouchableWithoutFeedback onPress={() => this.setState({ showModall: false })}>
+        <View style={style.modalBackground}>
+            <TouchableWithoutFeedback onPress={() => this.setState({ showModall: false })}>
+                <View style={style.modalContainer}>
+                    <Text style={style.modalTitle}>Message Status</Text>
+                    <SectionList
+                        sections={sections}
+                        keyExtractor={(item) => item.userId}
+                        renderItem={({ item, section }) => (
+                            <View style={style.item}>
+                                <Icon name={'crow'} size={30} style={{ paddingRight: 15 }} />
+                                <View>
+                                    <Text style={style.title}>{item.userName}</Text>
+                                    <Text style={style.name}>{item.bio}</Text>
+                                </View>
+                                <View style={{ flex: 1 }} />
+                                <Icon
+                                    name={'check'}
+                                    size={11}
+                                    style={{ color: section.title === 'Seen' ? '#0f73ae' : 'black', marginLeft: 10 }}
+                                />
+                            </View>
+                        )}
+                        renderSectionHeader={({ section: { title } }) => (
+                            <Text style={style.modalTitle}>{title}</Text>
+                        )}
+                    />
+                </View>
+            </TouchableWithoutFeedback>
+        </View>
+    </TouchableWithoutFeedback>
+</Modal>
             </SafeAreaView>
         );
     }
 }
 
 const style = StyleSheet.create({
+   
     flatlist: {
         flex: 1
     },
@@ -782,12 +1094,6 @@ const style = StyleSheet.create({
         height: 50,
         marginRight: 20
     },
-    send: {
-        backgroundColor: '#FF8400',
-        paddingHorizontal: 10,
-        paddingVertical: 15,
-        borderRadius: 8,
-    },
     tooltip: {
         position: 'absolute',
         bottom: 40,
@@ -798,10 +1104,60 @@ const style = StyleSheet.create({
         width: 200, // Increased width
         justifyContent: 'center', // Center the text horizontally
         alignItems: 'center', // Center the text horizontally
+    
     },
     tooltipText: {
         color: '#000',
         fontSize: 12,
+    },
+    modalBackground: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContainer: {
+        backgroundColor: 'white',
+        padding: 20,
+        borderRadius: 10,
+        width: '80%',
+        maxHeight: '50%',
+    },
+    modalTitle: {
+        fontSize: 20,
+        marginBottom: 10,
+        textAlign: 'center',
+    },
+    item: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 10,
+        marginBottom:10,
+        borderBottomColor: '#dedede',
+        borderBottomWidth: 1,
+        width: '100%',
+    },
+    selectedItem: {
+        backgroundColor: 'rgba(255, 132, 0, 0.2)',
+    },
+    title: {
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    name: {
+        fontSize: 14,
+        color: '#666',
+    },
+    vibrateButton: {
+        marginTop: 20,
+        alignItems: 'center',
+        padding: 10,
+        backgroundColor: '#FF8400',
+        borderRadius: 5,
+    },
+    vibrateButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
     },
 });
 

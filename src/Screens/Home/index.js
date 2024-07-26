@@ -64,7 +64,7 @@ class Home extends Component {
 
     handleAccept = async (groupId, userId) => {
 
-        console.log(groupId);
+
         const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}`);
         await groupRef.child('members').once('value').then(async (snapshot) => {
             const members = snapshot.val() || [];

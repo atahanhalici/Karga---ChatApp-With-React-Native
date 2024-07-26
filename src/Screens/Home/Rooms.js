@@ -40,7 +40,7 @@ class Rooms extends Component {
         const { chatRoomName } = this.state;
 
         if (chatRoomName.trim() !== '') {
-            console.log('Creating chat room with name:', chatRoomName);
+
             const user = auth().currentUser;
 
             if (user) {
@@ -55,7 +55,7 @@ class Rooms extends Component {
                     userName: userName,
                     connectedUserCount: 0,
                 }).then(() => {
-                    console.log("Chat room created successfully");
+
 
                     this.setState({
                         chatRoomName: '',

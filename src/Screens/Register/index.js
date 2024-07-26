@@ -16,13 +16,13 @@ class Register extends React.Component {
 
     _handleSubmit = async (values) => {
       try {
-        console.log(values);
+
         await auth().createUserWithEmailAndPassword(values.email, values.password);
         
         const user = firebase.auth().currentUser;
         if (user) {
           const fcmToken = await firebase.messaging().getToken()
-          console.log(fcmToken);
+
           
           await user.updateProfile({ displayName: values.username });
     

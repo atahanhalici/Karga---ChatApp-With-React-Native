@@ -34,7 +34,7 @@ password:true
             .ref(`users/${user.uid}`);
     
           await userRef.update(updateData);
-          console.log('FCM Token güncellendi.');
+
     
           this.props.navigation.reset({
             index: 0,

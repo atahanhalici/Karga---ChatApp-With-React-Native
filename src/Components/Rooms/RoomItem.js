@@ -3,7 +3,6 @@ import { TouchableOpacity, Text, StyleSheet, Dimensions, View } from "react-nati
 import Icon from 'react-native-vector-icons/FontAwesome5';
 
 const RoomItem = ({ item, navigation }) => {
-    console.log(item.connectedUserCount);
     
     return (
        
