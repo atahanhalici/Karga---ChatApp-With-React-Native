@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { View, Text, StyleSheet, TextInput, FlatList, SafeAreaView,Modal, TouchableOpacity,TouchableWithoutFeedback,SectionList} from 'react-native';
+import { View, Text, StyleSheet, TextInput, FlatList, SafeAreaView,Modal, TouchableOpacity,TouchableWithoutFeedback,SectionList,Image} from 'react-native';
 import CheckBox from '@react-native-community/checkbox';
 import Message from '../../Components/Rooms/Message';
 import Icon from 'react-native-vector-icons/FontAwesome5';
@@ -30,6 +30,7 @@ class Chat extends Component {
             activeUsers:[],
             sections:[],
             selectAll: false,
+            picture:""
         };
         this.typingTimeout = null;
     }
@@ -230,12 +231,17 @@ cancelDisconnect = (roomId) => {
             const { conversationId, name, groupId } = this.props.route.params;
             this.props.navigation.setOptions({
                 headerTitle: () => (
+                    <View style={style.headerContainer}>
+                    {(conversationId || groupId) && this.state.picture && (
+                        <Image source={{ uri: this.state.picture }} style={style.headerImage} />
+                    )}
                     <View>
                         <Text style={style.headerTitle}>{name}</Text>
                         {(conversationId || groupId) && (
                             <Text style={style.headerSubtitle}>{this.getStatusText()}</Text>
                         )}
                     </View>
+                </View>
                 ),
             });
         };
@@ -291,7 +297,7 @@ cancelDisconnect = (roomId) => {
                 this.decreaseConversationUserStatus(conversationId);
                 this.markMessagesAsRead(conversationId);
             }else if (groupId){
-             
+                this.getPicture(groupId);
                 this.activeUsersListen(groupId);
                 this.groupListen(groupId)
                 this.getAllMembers(groupId);
@@ -302,6 +308,19 @@ cancelDisconnect = (roomId) => {
             }
         }
 
+        getPicture=(groupId)=>{
+            if(groupId){
+               const groupRef= firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`groups/${groupId}`);
+                groupRef.on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if (data && data.picture) {
+                        this.setState({ picture: data.picture });
+                    }
+                });
+            }
+           
+
+        }
 
     getAllMembers =async (groupId)=>{
         const membersRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`groups/${groupId}/members`);
@@ -496,7 +515,7 @@ this.handleLeaveChat(conversationId);
         const otherUserRef =  db.ref(`users/${otherUser}`);
         otherUserRef.on('value', snapshot => {
             const userStatus = snapshot.val();
-            this.setState({userName:userStatus.userName, otherUserIsOnline:userStatus.online, otherUserLastOnline:userStatus.lastOnlineTime})
+            this.setState({userName:userStatus.userName, otherUserIsOnline:userStatus.online, otherUserLastOnline:userStatus.lastOnlineTime,picture:userStatus.picture})
           
         });
       
@@ -800,7 +819,8 @@ this.handleLeaveChat(conversationId);
                                             lastOnlineTime: userStatus?.lastOnlineTime,
                                             inChat: groupStatus.inChat,
                                             write: groupStatus?.write || false,
-                                            bio: userStatus?.bio
+                                            bio: userStatus?.bio,
+                                            picture:userStatus?.picture
                                         };
                                     } else {
                                         activeUsers.push({
@@ -810,7 +830,8 @@ this.handleLeaveChat(conversationId);
                                             lastOnlineTime: userStatus?.lastOnlineTime,
                                             inChat: groupStatus.inChat,
                                             write: groupStatus?.write || false,
-                                            bio: userStatus?.bio
+                                            bio: userStatus?.bio,
+                                            picture:userStatus?.picture
                                         });
                                     }
                                 } else {
@@ -903,7 +924,8 @@ this.handleLeaveChat(conversationId);
                             userName: memberData?.userName,
                             online: memberData?.online,
                             lastOnlineTime: memberData?.lastOnlineTime,
-                            bio: memberData?.bio
+                            bio: memberData?.bio,
+                            picture:memberData?.picture
                         });
                     } else {
                         notReadsList.push({
@@ -911,7 +933,8 @@ this.handleLeaveChat(conversationId);
                             userName: memberData?.userName,
                             online: memberData?.online,
                             lastOnlineTime: memberData?.lastOnlineTime,
-                            bio: memberData?.bio
+                            bio: memberData?.bio,
+                            picture:memberData?.picture
                         });
                     }
                 }
@@ -1041,7 +1064,10 @@ this.handleLeaveChat(conversationId);
                                             style={[style.item, selectedFriends.includes(item.userId) && style.selectedItem]}
                                             onPress={() => this.handleFriendPress(item)}
                                         >
-                                            <Icon name={'crow'} size={30} style={{ paddingRight: 15 }} />
+                                            <Image 
+                                source={{ uri: item.picture }} 
+                                style={style.profileImage} 
+                            />
                                             <View>
                                                 <Text style={style.title}>{item.userName}</Text>
                                                 <Text style={style.name}>{item.bio}</Text>
@@ -1090,7 +1116,10 @@ this.handleLeaveChat(conversationId);
                                     keyExtractor={(item) => item.userId}
                                     renderItem={({ item, section }) => (
                                         <View style={style.item}>
-                                            <Icon name={'crow'} size={30} style={{ paddingRight: 15 }} />
+                                             <Image 
+                                source={{ uri: item.picture }} 
+                                style={style.profileImage} 
+                            />
                                             <View>
                                                 <Text style={style.title}>{item.userName}</Text>
                                                 <Text style={style.name}>{item.bio}</Text>
@@ -1126,12 +1155,28 @@ const style = StyleSheet.create({
         marginTop: 10,
         
     },
+    profileImage: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        marginRight: 15,
+    },
     selectAllText: {
         marginLeft: 10,
         fontSize: 16,
     },
     flatlist: {
         flex: 1
+    },
+    headerContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    headerImage: {
+        width: 35,
+        height: 35,
+        borderRadius: 20,
+        marginRight: 10,
     },
     headerTitle: {
         fontSize: 18,

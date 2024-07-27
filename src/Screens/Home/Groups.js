@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, TextInput, Alert, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, TextInput, Alert, Animated,Image } from 'react-native';
 import { FAB } from 'react-native-paper';
 import Modal from 'react-native-modal';
 import firebase from '@react-native-firebase/app';
@@ -69,6 +69,7 @@ const Groups = () => {
                             const newGroup = {
                                 groupId,
                                 groupName: group.name,
+                                picture:group.picture,
                                 lastMessage: getLastMessageText(lastMessage, lastMessage.messageType === 'vibration' ? lastMessage.selectedUsers : null, userId, lastMessage.userName),
                                 unreadMessagesCount,
                                 lastMessageTime: group.lastMessageTime
@@ -94,6 +95,7 @@ const Groups = () => {
                                     const newGroup = {
                                         groupId,
                                         groupName: updatedGroup.name,
+                                        picture:updatedGroup.picture,
                                         lastMessage: getLastMessageText(updatedLastMessage, updatedLastMessage.messageType === 'vibration' ? updatedLastMessage.selectedUsers : null, userId, updatedLastMessage.userName),
                                         unreadMessagesCount: updatedUnreadMessagesCount,
                                         lastMessageTime: updatedGroup.lastMessageTime
@@ -214,6 +216,7 @@ const Groups = () => {
         await newGroupRef.set({
             members: [userId].sort(),
             messages: {},
+            picture:"https://cdn-icons-png.flaticon.com/512/5097/5097475.png",
             name:groupName.trim(),
             userStatus: {
                 [userId]: {
@@ -286,7 +289,10 @@ const Groups = () => {
                         style={styles.item}
                         onPress={() => navigation.navigate('Chat', { groupId: item.groupId, name: item.groupName })}
                     >
-                        <Icon name={'crow'} size={30} style={{ paddingRight: 15 }} />
+                         <Image 
+                                source={{ uri: item.picture }} 
+                                style={styles.profileImage} 
+                            />
                         <View>
                             <Text style={styles.title}>{item.groupName}</Text>
                             <Text style={styles.name}>
@@ -349,7 +355,10 @@ const Groups = () => {
                                 style={[styles.item, selectedFriends.includes(item.userId) && styles.selectedItem]}
                                 onPress={() => handleFriendPress(item)}
                             >
-                                <Icon name={'crow'} size={30} style={{ paddingRight: 15 }} />
+                                 <Image 
+                                source={{ uri: item.picture }} 
+                                style={styles.profileImage} 
+                            />
                                 <View>
                                     <Text style={styles.title}>{item.userName}</Text>
                                     <Text style={styles.name}>{item.bio}</Text>
@@ -369,6 +378,12 @@ const Groups = () => {
 };
 
 const styles = StyleSheet.create({
+    profileImage: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        marginRight: 15,
+    },
     container: {
         flex: 1,
         justifyContent: 'center',

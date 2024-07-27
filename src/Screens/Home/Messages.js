@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions,Image } from 'react-native';
 import { FAB } from 'react-native-paper';
 import Modal from 'react-native-modal';
 import firebase from '@react-native-firebase/app';
@@ -210,7 +210,10 @@ const Messages = () => {
                         style={styles.item}
                         onPress={() => navigation.navigate('Chat', { conversationId: item.conversationId, name: item.friend.userName })}
                     >
-                        <Icon name={'crow'} size={30} style={{ paddingRight: 15 }} />
+                       <Image 
+                                source={{ uri: item.friend.picture }} 
+                                style={styles.profileImage} 
+                            />
                         <View>
                             <Text style={styles.title}>{item.friend.userName}</Text>
                             <Text style={styles.name}>
@@ -260,7 +263,10 @@ const Messages = () => {
                                 style={styles.item}
                                 onPress={() => handleFriendPress(item)}
                             >
-                                <Icon name={'crow'} size={30} style={{ paddingRight: 15 }} />
+                                <Image 
+                                source={{ uri: item.picture }} 
+                                style={styles.profileImage} 
+                            />
                                 <View>
                                     <Text style={styles.title}>{item.userName}</Text>
                                     <Text style={styles.name}>{item.bio}</Text>
@@ -276,6 +282,12 @@ const Messages = () => {
     );
 };
 const styles = StyleSheet.create({
+    profileImage: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        marginRight: 15,
+    },
     container: {
         flex: 1,
         justifyContent: 'center',
@@ -337,7 +349,7 @@ const styles = StyleSheet.create({
         width: 13,
         height: 13,
         borderRadius: 7.5, // Yarıçap, genişlik ve yüksekliğin yarısı olmalıdır
-        marginRight: 20, // İkona padding-right vermek yerine margin-right kullanıyoruz
+        marginRight: 40, // İkona padding-right vermek yerine margin-right kullanıyoruz
     }
 });
 

@@ -229,7 +229,17 @@ class Home extends Component {
             </View>
         );
     };
-
+    getContainerStyle = () => {
+        const { selectedTab } = this.state;
+        return {
+            backgroundColor: 'white',
+            flex: 1,
+            borderTopRightRadius: 30,
+            borderTopLeftRadius: 30,
+            alignItems: 'center',
+            paddingTop: selectedTab === 'Profile' ? 0 : 20,
+        };
+    }
     render() {
         const { selectedTab, searchBarHeight, isSearchBarVisible, isNotificationMenuVisible, notifications } = this.state;
         const hasNotifications = notifications.length > 0;
@@ -284,7 +294,7 @@ class Home extends Component {
                         ))}
                     </View>
                 </View>
-                <View style={styles.container}>
+                <View style={this.getContainerStyle()}>
                     {this.renderContent()}
                 </View>
 
@@ -361,14 +371,7 @@ const styles = StyleSheet.create({
     tabTitle: { fontWeight: '600' },
     selectedTabTitle: { color: '#FF8400' },
     unselectedTabTitle: { color: 'white' },
-    container: {
-        backgroundColor: 'white',
-        flex: 1,
-        borderTopRightRadius: 30,
-        borderTopLeftRadius: 30,
-        alignItems: 'center',
-        paddingTop: 20,
-    },
+
     modalOverlay: {
         position: 'absolute',
         top: 0,

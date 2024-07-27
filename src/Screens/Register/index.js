@@ -40,6 +40,7 @@ class Register extends React.Component {
             online: true,
             friends: [],
             bio: 'Karga bir harika!',
+            picture:"https://cdn-icons-png.flaticon.com/512/149/149071.png",
             fcmToken: fcmToken,
           });
     
