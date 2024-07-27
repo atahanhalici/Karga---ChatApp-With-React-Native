@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import { View, Text, StyleSheet, TextInput, FlatList, SafeAreaView,Modal, TouchableOpacity,TouchableWithoutFeedback,SectionList} from 'react-native';
+import CheckBox from '@react-native-community/checkbox';
 import Message from '../../Components/Rooms/Message';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import auth from '@react-native-firebase/auth';
@@ -27,7 +28,8 @@ class Chat extends Component {
             showModall: false,
             selectedFriends: [], 
             activeUsers:[],
-            sections:[]
+            sections:[],
+            selectAll: false,
         };
         this.typingTimeout = null;
     }
@@ -460,7 +462,8 @@ this.handleLeaveChat(conversationId);
                         timestamp: item.val().timestamp, // Zaman damgasını dahil et
                         id: item.key,
                         read: item.val().read,
-                        messageType: item.val().messageType
+                        messageType: item.val().messageType,
+                        selectedUsers:item.val().selectedUsers
                     });
                 });
                 // Tarihe göre sıralama
@@ -572,14 +575,14 @@ this.handleLeaveChat(conversationId);
     
     
     handleSend = async (messageType = "text") => {
-        const { text } = this.state;
+        const { text,selectedFriends } = this.state;
         const { roomId, conversationId, groupId, name } = this.props.route.params;
     
         const user = auth().currentUser;
         const userId = user.uid;
         const userName = user.displayName;
         const timestamp = firebase.database.ServerValue.TIMESTAMP;
-    
+        let selectedUsers = [];
         let newReference;
         let token;
         let read = false;
@@ -635,7 +638,9 @@ this.handleLeaveChat(conversationId);
             try {
                 const groupSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`groups/${groupId}/members`).once('value');
                 let tokens = [];
-    
+
+
+
                 const membersPromises = [];
                 groupSnapshot.forEach(childSnapshot => {
                     const memberId = childSnapshot.val();
@@ -657,27 +662,41 @@ this.handleLeaveChat(conversationId);
                             })
                     );
                 });
+
+
+
+                if(messageType==="vibration"){
+                    for (const friendId of selectedFriends) {
+                        const friendSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${friendId}`).once('value');
+                        const friendData = friendSnapshot.val();
+                        if (friendData) {
+                            selectedUsers.push({ userId: friendId, userName: friendData.userName });
+                        }
+                    }
+                }
     
                 await Promise.all(membersPromises);
-    
-                tokens.forEach(token => {
-                    if (messageType !== "vibration") {
-                        fetch('http://192.168.0.23:3000/send-notification', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                token: token,
-                                title: `${name}`,
-                                body: `${userName}: ${text}`
-                            })
-                        }).then(response => response.json())
-                            .then(data => {
-                            }).catch(error => {
-                            });
-                    }
-                });
+    if(messageType!=="vibration"){
+        tokens.forEach(token => {
+            if (messageType !== "vibration") {
+                fetch('http://192.168.0.23:3000/send-notification', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        token: token,
+                        title: `${name}`,
+                        body: `${userName}: ${text}`
+                    })
+                }).then(response => response.json())
+                    .then(data => {
+                    }).catch(error => {
+                    });
+            }
+        });
+    }
+                
             } catch (error) {
                 console.error('Error:', error);
             }
@@ -695,6 +714,9 @@ this.handleLeaveChat(conversationId);
             messageData.read = read;
         } else if (groupId) {
             messageData.read = read;
+            if(messageType=="vibration"){
+                messageData.selectedUsers=selectedUsers
+            }
         }
     
         newReference.set(messageData).then(() => {
@@ -727,7 +749,6 @@ this.handleLeaveChat(conversationId);
             console.error("Error sending message:", error);
         });
     };
-
 
     activeUsersListen = (groupId) => {
         try {
@@ -926,18 +947,31 @@ this.handleLeaveChat(conversationId);
     };
     
     handleFriendPress = (item) => {
-        const { selectedFriends } = this.state;
+        const { selectedFriends,activeUsers } = this.state;
         const isSelected = selectedFriends.includes(item.userId);
         const updatedSelectedFriends = isSelected
             ? selectedFriends.filter(id => id !== item.userId)
             : [...selectedFriends, item.userId];
     
-        this.setState({ selectedFriends: updatedSelectedFriends });
+            const allSelected = activeUsers.every(user => updatedSelectedFriends.includes(user.userId));
+
+            this.setState({ 
+                selectedFriends: updatedSelectedFriends,
+                selectAll: allSelected 
+            });
 
     };
-    
+    handleSelectAll = () => {
+        const { activeUsers, selectAll } = this.state;
+        const updatedSelectedFriends = selectAll ? [] : activeUsers.map(user => user.userId);
+        
+        this.setState({ 
+            selectedFriends: updatedSelectedFriends,
+            selectAll: !selectAll,
+        });
+    };
     render() {
-        const { text, messages, connectedUserCount, otherUserInChat, showTooltip, showModal, selectedFriends,activeUsers,showModall,sections } = this.state;
+        const { text, messages, connectedUserCount, otherUserInChat, showTooltip, showModal, selectedFriends,activeUsers,showModall,sections,selectAll  } = this.state;
         const { roomId, conversationId, groupId } = this.props.route.params;
         const inChatMembersCount = Object.values(this.state.members).filter(member => member.inChat).length;
 
@@ -994,9 +1028,9 @@ this.handleLeaveChat(conversationId);
                 transparent={true}
                 animationType="fade"
             >
-                <TouchableWithoutFeedback onPress={() => this.setState({ showModal: false,   selectedFriends:[]  })}>
+                <TouchableWithoutFeedback onPress={() => this.setState({ showModal: false, selectedFriends: [], selectAll: false })}>
                     <View style={style.modalBackground}>
-                        <TouchableWithoutFeedback onPress={() => this.setState({ showModal: false,   selectedFriends:[]  })}>
+                        <TouchableWithoutFeedback onPress={() => {}}>
                             <View style={style.modalContainer}>
                                 <Text style={style.modalTitle}>Users in Chat</Text>
                                 <FlatList
@@ -1012,11 +1046,27 @@ this.handleLeaveChat(conversationId);
                                                 <Text style={style.title}>{item.userName}</Text>
                                                 <Text style={style.name}>{item.bio}</Text>
                                             </View>
-                                           
                                         </TouchableOpacity>
                                     )}
                                 />
-                                <TouchableOpacity style={style.vibrateButton} onPress={() => {}}>
+                                <View style={style.selectAllContainer}>
+                                    <CheckBox 
+                                        value={selectAll}
+                                        style={{alignItems:'center'}}
+                                        tintColors={{ true: '#FF8400', false: '#000' }}
+                                        onValueChange={this.handleSelectAll}
+                                    />
+                                    <TouchableOpacity onPress={this.handleSelectAll}>
+                                        <Text style={style.selectAllText}>Select All Users</Text>
+                                    </TouchableOpacity>
+                                </View>
+                                <TouchableOpacity
+    style={style.vibrateButton}
+    onPress={async () => {
+        await this.handleSend("vibration");
+        this.setState({ selectedFriends: [], selectAll: false,showModal: false });
+    }}
+>
                                     <Text style={style.vibrateButtonText}>Vibrate</Text>
                                 </TouchableOpacity>
                             </View>
@@ -1026,49 +1076,60 @@ this.handleLeaveChat(conversationId);
             </Modal>
 
             <Modal
-    visible={showModall}
-    transparent={true}
-    animationType="fade"
->
-    <TouchableWithoutFeedback onPress={() => this.setState({ showModall: false })}>
-        <View style={style.modalBackground}>
-            <TouchableWithoutFeedback onPress={() => this.setState({ showModall: false })}>
-                <View style={style.modalContainer}>
-                    <Text style={style.modalTitle}>Message Status</Text>
-                    <SectionList
-                        sections={sections}
-                        keyExtractor={(item) => item.userId}
-                        renderItem={({ item, section }) => (
-                            <View style={style.item}>
-                                <Icon name={'crow'} size={30} style={{ paddingRight: 15 }} />
-                                <View>
-                                    <Text style={style.title}>{item.userName}</Text>
-                                    <Text style={style.name}>{item.bio}</Text>
-                                </View>
-                                <View style={{ flex: 1 }} />
-                                <Icon
-                                    name={'check'}
-                                    size={11}
-                                    style={{ color: section.title === 'Seen' ? '#0f73ae' : 'black', marginLeft: 10 }}
+                visible={showModall}
+                transparent={true}
+                animationType="fade"
+            >
+                <TouchableWithoutFeedback onPress={() => this.setState({ showModall: false })}>
+                    <View style={style.modalBackground}>
+                        <TouchableWithoutFeedback onPress={() => {}}>
+                            <View style={style.modalContainer}>
+                                <Text style={style.modalTitle}>Message Status</Text>
+                                <SectionList
+                                    sections={sections}
+                                    keyExtractor={(item) => item.userId}
+                                    renderItem={({ item, section }) => (
+                                        <View style={style.item}>
+                                            <Icon name={'crow'} size={30} style={{ paddingRight: 15 }} />
+                                            <View>
+                                                <Text style={style.title}>{item.userName}</Text>
+                                                <Text style={style.name}>{item.bio}</Text>
+                                            </View>
+                                            <View style={{ flex: 1 }} />
+                                            <Icon
+                                                name={'check'}
+                                                size={11}
+                                                style={{ color: section.title === 'Seen' ? '#0f73ae' : 'black', marginLeft: 10 }}
+                                            />
+                                        </View>
+                                    )}
+                                    renderSectionHeader={({ section: { title } }) => (
+                                        <Text style={{  fontSize: 20,
+                                            marginBottom: 10,
+                                            textAlign: 'left',  }}>{title}</Text>
+                                    )}
                                 />
                             </View>
-                        )}
-                        renderSectionHeader={({ section: { title } }) => (
-                            <Text style={style.modalTitle}>{title}</Text>
-                        )}
-                    />
-                </View>
-            </TouchableWithoutFeedback>
-        </View>
-    </TouchableWithoutFeedback>
-</Modal>
+                        </TouchableWithoutFeedback>
+                    </View>
+                </TouchableWithoutFeedback>
+            </Modal>
             </SafeAreaView>
         );
     }
 }
 
 const style = StyleSheet.create({
-   
+    selectAllContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 10,
+        
+    },
+    selectAllText: {
+        marginLeft: 10,
+        fontSize: 16,
+    },
     flatlist: {
         flex: 1
     },
@@ -1127,6 +1188,8 @@ const style = StyleSheet.create({
         fontSize: 20,
         marginBottom: 10,
         textAlign: 'center',
+        fontWeight:'500',
+        color:'black'
     },
     item: {
         flexDirection: 'row',

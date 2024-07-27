@@ -29,7 +29,6 @@ const Groups = () => {
         );
     }, [searchText, friends]);
 
-    
     useEffect(() => {
         const userGroupsRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}/groups`);
         
@@ -52,31 +51,31 @@ const Groups = () => {
                     
                     const groupSnapshot = await groupRef.once('value');
                     const group = groupSnapshot.val();
-    
+
                     if (group) {
                         const messages = group.messages ? Object.entries(group.messages) : [];
                         const sortedMessages = messages.sort(([keyA], [keyB]) => keyA.localeCompare(keyB));
                         const lastMessage = sortedMessages.length > 0 ? sortedMessages[sortedMessages.length - 1][1] : { messageType: "text", text: "" };
-    
+
                         const unreadMessagesCount = messages.reduce((count, [key, message]) => {
-                            if (message.userId !== userId && !message.read.includes(userId)) {
+                            if (message.userId !== userId && (!message.read || !message.read.includes(userId))) {
                                 return count + 1;
                             }
                             return count;
                         }, 0);
-    
+
                         setGroups((prevGroups) => {
                             const updatedGroups = prevGroups.filter(grp => grp.groupId !== groupId);
                             const newGroup = {
                                 groupId,
                                 groupName: group.name,
-                                lastMessage,
+                                lastMessage: getLastMessageText(lastMessage, lastMessage.messageType === 'vibration' ? lastMessage.selectedUsers : null, userId, lastMessage.userName),
                                 unreadMessagesCount,
                                 lastMessageTime: group.lastMessageTime
                             };
                             return [...updatedGroups, newGroup].sort((a, b) => b.lastMessageTime - a.lastMessageTime);
                         });
-    
+
                         groupRef.on('value', snapshot => {
                             const updatedGroup = snapshot.val();
                             if (updatedGroup && updatedGroup.messages) {
@@ -84,18 +83,18 @@ const Groups = () => {
                                 const updatedSortedMessages = updatedMessages.sort(([keyA], [keyB]) => keyA.localeCompare(keyB));
                                 const updatedLastMessage = updatedSortedMessages.length > 0 ? updatedSortedMessages[updatedSortedMessages.length - 1][1] : { messageType: "text", text: "" };
                                 const updatedUnreadMessagesCount = updatedMessages.reduce((count, [key, message]) => {
-                                    if (message.userId !== userId && !message.read.includes(userId)) {
+                                    if (message.userId !== userId && (!message.read || !message.read.includes(userId))) {
                                         return count + 1;
                                     }
                                     return count;
                                 }, 0);
-    
+
                                 setGroups((prevGroups) => {
                                     const updatedGroups = prevGroups.filter(grp => grp.groupId !== groupId);
                                     const newGroup = {
                                         groupId,
                                         groupName: updatedGroup.name,
-                                        lastMessage: updatedLastMessage,
+                                        lastMessage: getLastMessageText(updatedLastMessage, updatedLastMessage.messageType === 'vibration' ? updatedLastMessage.selectedUsers : null, userId, updatedLastMessage.userName),
                                         unreadMessagesCount: updatedUnreadMessagesCount,
                                         lastMessageTime: updatedGroup.lastMessageTime
                                     };
@@ -109,6 +108,32 @@ const Groups = () => {
         } catch (error) {
             console.error("Error fetching groups:", error);
         }
+    };
+
+    const getLastMessageText = (message, selectedUsers, userId, userName) => {
+        if (message.messageType === 'vibration') {
+            if (selectedUsers) {
+                const isCurrentUserInSelectedUsers = selectedUsers.some(user => user.userId === userId);
+                if (isCurrentUserInSelectedUsers) {
+                    if (selectedUsers.length === 1) {
+                        return `${userName} sizi titretti`;
+                    } else if (selectedUsers.length === 2) {
+                        const otherUserName = selectedUsers.find(user => user.userId !== userId).userName;
+                        return `${userName}, sizi ve ${otherUserName} adlı kullanıcıyı titretti`;
+                    } else {
+                        return `${userName} ve diğer kullanıcıları titretti`;
+                    }
+                } else {
+                    if (selectedUsers.length < 2) {
+                        const selectedUserNames = selectedUsers.map(user => user.userName).join(", ");
+                        return `${userName}, ${selectedUserNames} kullanıcısını titretti`;
+                    } else {
+                        return `${userName}, birden fazla kişiyi titretti`;
+                    }
+                }
+            }
+        }
+        return message.text;
     };
     
 
@@ -265,7 +290,7 @@ const Groups = () => {
                         <View>
                             <Text style={styles.title}>{item.groupName}</Text>
                             <Text style={styles.name}>
-                               {item.lastMessage.text}
+                               {item.lastMessage}
                             </Text>
                         </View>
                         <View style={{ flex: 1 }} />

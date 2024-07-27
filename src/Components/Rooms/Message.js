@@ -12,22 +12,53 @@ const Message = ({ item, index, otherUser,isConversation,read,isGroup  }) => {
     // Determine the message text based on type and user ID
     let messageText = item.text;
     if (item.messageType === "vibration") {
-        if (item.userId !== userId) {
-            messageText = `${item.userName} sizi titretti`;
-            const messageDate = new Date(item.timestamp);
-            const now = Date.now();
-            const timeSinceMessage = now - messageDate;
+        if (isConversation) {
+            if (item.userId !== userId) {
+                messageText = `${item.userName} sizi titretti`;
+                const messageDate = new Date(item.timestamp);
+                const now = Date.now();
+                const timeSinceMessage = now - messageDate;
 
-            // Check if the message is within the last 2 seconds and hasn't been vibrated for yet
-            if (timeSinceMessage < 2000 && (!lastVibrated || messageDate > lastVibrated)) {
-                Vibration.vibrate(1000);
-                setLastVibrated(messageDate); // Update the last vibrated message timestamp
+                // Check if the message is within the last 2 seconds and hasn't been vibrated for yet
+                if (timeSinceMessage < 2000 && (!lastVibrated || messageDate > lastVibrated)) {
+                    Vibration.vibrate(1000);
+                    setLastVibrated(messageDate); // Update the last vibrated message timestamp
+                }
+            } else {
+                messageText = `${otherUser} kullanıcısını titrettiniz`;
             }
-        } else {
-            messageText = `${otherUser} kullanıcısını titrettiniz`;
+        } else if (isGroup) {
+            const isCurrentUserInSelectedUsers = item.selectedUsers.some(user => user.userId === userId);
+
+            if (isCurrentUserInSelectedUsers) {
+                if (item.selectedUsers.length === 1) {
+                    messageText = `${item.userName} sizi titretti`;
+                } else if (item.selectedUsers.length === 2) {
+                    const otherUserName = item.selectedUsers.find(user => user.userId !== userId).userName;
+                    messageText = `${item.userName}, sizi ve ${otherUserName} adlı kullanıcıyı titretti`;
+                } else {
+                    messageText = `${item.userName} ve diğer kullanıcıları titretti`;
+                }
+
+                const messageDate = new Date(item.timestamp);
+                const now = Date.now();
+                const timeSinceMessage = now - messageDate;
+
+                // Check if the message is within the last 2 seconds and hasn't been vibrated for yet
+                if (timeSinceMessage < 2000 && (!lastVibrated || messageDate > lastVibrated)) {
+                    Vibration.vibrate(1000);
+                    setLastVibrated(messageDate); // Update the last vibrated message timestamp
+                }
+            } else {
+                if (item.selectedUsers.length < 2) {
+                    const selectedUserNames = item.selectedUsers.map(user => user.userName).join(", ");
+                    messageText = `${item.userName}, ${selectedUserNames} kullanıcısını titretti`;
+                } else {
+                    messageText = `${item.userName}, birden fazla kişiyi titretti`;
+                }
+            }
         }
     }
-
     return (
         <View style={(userId !== item.userId) ? style.other : style.me}>
             <View style={[style.bubble, {
