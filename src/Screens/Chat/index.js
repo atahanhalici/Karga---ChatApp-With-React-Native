@@ -147,7 +147,6 @@ cancelDisconnect = (roomId) => {
             else if(groupId){
                 return <TouchableOpacity onLongPress={() => {
                     if (item.userId === userId) {
-                        console.log("sa");
                         this.openModall(item.id);
                     }
                 }}><Message item={item} index={index} isGroup={isGroup} read={this.state.allMembers.every(member => item.read.includes(member))}/></TouchableOpacity>;
@@ -160,7 +159,7 @@ cancelDisconnect = (roomId) => {
     
             if (conversationId) {
                 if (otherUserInWrite) {
-                    return "Typing";
+                    return "Typing...";
                 } else if (otherUserInChat) {
                     return "In Conversation";
                 } else if (otherUserIsOnline) {
@@ -175,7 +174,7 @@ cancelDisconnect = (roomId) => {
     
                 if (writingMembers.length > 0) {
                     if (writingMembers.length === 1) {
-                        return `${writingMembers[0].userName} is typing`;
+                        return `${writingMembers[0].userName} is typing...`;
                     } else {
                         return "Multiple users are typing";
                     }

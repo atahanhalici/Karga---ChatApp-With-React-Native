@@ -267,6 +267,7 @@ const Groups = () => {
         });
 
         toggleModal();
+        navigation.navigate('Chat', { groupId: groupId, name: groupName.trim() })
     };
 
     const toggleFilterInput = () => {
