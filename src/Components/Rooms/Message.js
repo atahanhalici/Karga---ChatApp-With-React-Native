@@ -1,13 +1,21 @@
 import React, { useState, useEffect } from "react";
-import { TouchableOpacity, Text, StyleSheet, Dimensions, View, Vibration } from "react-native";
+import { TouchableOpacity, Text, StyleSheet, Dimensions, View, Vibration, Image, Modal } from "react-native";
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import auth from '@react-native-firebase/auth';
-import firebase from '@react-native-firebase/app';
 
-const Message = ({ item, index, otherUser,isConversation,read,isGroup  }) => {
+const Message = ({ item, index, otherUser, isConversation, read, isGroup, openModall }) => {
     const user = auth().currentUser;
     const userId = user.uid;
     const [lastVibrated, setLastVibrated] = useState(null);
+    const [modalVisible, setModalVisible] = useState(false);
+
+    const handleImagePress = () => {
+        setModalVisible(true);
+    };
+
+    const closeModal = () => {
+        setModalVisible(false);
+    };
 
     // Determine the message text based on type and user ID
     let messageText = item.text;
@@ -59,6 +67,12 @@ const Message = ({ item, index, otherUser,isConversation,read,isGroup  }) => {
             }
         }
     }
+    const formatTime = (timestamp) => {
+        const date = new Date(timestamp);
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        return `${hours}:${minutes}`;
+    };
     return (
         <View style={(userId !== item.userId) ? style.other : style.me}>
             <View style={[style.bubble, {
@@ -66,27 +80,56 @@ const Message = ({ item, index, otherUser,isConversation,read,isGroup  }) => {
                 borderTopLeftRadius: (userId === item.userId) ? 15 : 0,
                 backgroundColor: (userId === item.userId) ? '#FF8400' : '#ddd'
             }]}>
-                <Text style={{ color: (userId === item.userId) ? 'white' : '#575757', fontSize: 15, marginBottom: 8 }}>
-                    {messageText}
-                </Text>
+                {item.messageType === "image" ? (
+                    <TouchableOpacity onPress={handleImagePress} onLongPress={() => {
+                        if (item.userId === userId && isGroup) {
+                            openModall(item.id);
+                        }
+                    }}>
+                        <Image
+                            source={{ uri: item.text }}
+                            style={{ width: 200, height: 200, marginBottom: 10 }} // Adjust width and height as needed
+                        />
+                    </TouchableOpacity>
+                ) : (
+                    <Text style={{ color: (userId === item.userId) ? 'white' : '#575757', fontSize: 15, marginBottom: 8 }}>
+                        {messageText}
+                    </Text>
+                )}
+
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                     <Text style={{ color: userId === item.userId ? 'white' : '#575757', textAlign: userId === item.userId ? 'right' : 'left', fontSize: 11 }}>
                         {item.userName}
                     </Text>
+                    <View style={{flex:1}}></View>
+                    <Text style={{ color: userId === item.userId ? 'white' : '#575757', textAlign: userId === item.userId ? 'right' : 'left', fontSize: 11, paddingLeft:10 }}>
+                        {formatTime(item.timestamp)}
+                    </Text>
 
                     {(isConversation || isGroup) && userId === item.userId && (
-    <Icon
-        name={'check'}
-        size={11}
-        style={{ color: read ? '#0f73ae' : 'black', marginLeft: 10 }}
-    />
-)}
+                        <Icon
+                            name={'check'}
+                            size={11}
+                            style={{ color: read ? '#0f73ae' : 'black', marginLeft: 10 }}
+                        />
+                    )}
                 </View>
+
+                <Modal visible={modalVisible} transparent={true} onRequestClose={closeModal}>
+                    <View style={style.modalBackground}>
+                        <TouchableOpacity style={style.modalContainer} onPress={closeModal}>
+                            <Image
+                                source={{ uri: item.text }}
+                                style={style.fullscreenImage}
+                                resizeMode="contain"
+                            />
+                        </TouchableOpacity>
+                    </View>
+                </Modal>
             </View>
         </View>
     );
 }
-
 const style = StyleSheet.create({
     other: {
         flexDirection: 'row',
@@ -105,7 +148,23 @@ const style = StyleSheet.create({
         marginBottom: 10,
         borderRadius: 15,
         margin: 10
-    }
+    },
+    modalBackground: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    fullscreenImage: {
+        width: '80%',
+        height: 'auto',
+        aspectRatio: 1, // Ensures the aspect ratio is maintained
+    },
 });
 
 export default Message;

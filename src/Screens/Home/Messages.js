@@ -221,7 +221,7 @@ const Messages = () => {
     ? (item.lastMessage.userId == userId 
       ? `${item.friend.userName} kullanıcısını titrettiniz` 
       : `${item.friend.userName} sizi titretti`) 
-    : item.lastMessage.text}
+    :item.lastMessage.messageType == "image"? "📷": item.lastMessage.text}
 </Text>
                             
                         </View>

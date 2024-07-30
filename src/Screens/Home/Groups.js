@@ -135,6 +135,9 @@ const Groups = () => {
                 }
             }
         }
+       else if (message.messageType === 'image') {
+           return "📷"
+        }
         return message.text;
     };
     

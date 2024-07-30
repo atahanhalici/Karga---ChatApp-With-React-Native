@@ -1,11 +1,14 @@
 import React, { Component } from 'react';
-import { View, Text, StyleSheet, TextInput, FlatList, SafeAreaView,Modal, TouchableOpacity,TouchableWithoutFeedback,SectionList,Image} from 'react-native';
+import { View, Text, StyleSheet, TextInput, FlatList, SafeAreaView,Modal, TouchableOpacity,TouchableWithoutFeedback,SectionList,Image,ActivityIndicator} from 'react-native';
 import CheckBox from '@react-native-community/checkbox';
 import Message from '../../Components/Rooms/Message';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import auth from '@react-native-firebase/auth';
 import firebase from '@react-native-firebase/app';
-
+import * as ImagePicker from 'react-native-image-picker';
+import ImageCropPicker from 'react-native-image-crop-picker';
+import storage from '@react-native-firebase/storage';
+import moment from 'moment';
 
 
 class Chat extends Component {
@@ -30,9 +33,12 @@ class Chat extends Component {
             activeUsers:[],
             sections:[],
             selectAll: false,
-            picture:""
+            picture:"",
+            showOptionsPanel: false,
+            showText:""
         };
         this.typingTimeout = null;
+        this.openModall = this.openModall.bind(this);
     }
     updateTypingStatus = async (id, status, isGroup = false) => {
         const userId = firebase.auth().currentUser.uid;
@@ -72,11 +78,11 @@ class Chat extends Component {
             this.updateTypingStatus(id, false, isGroup);
         }
     }
-    
-    showTooltip = () => {
-        this.setState({ showTooltip: true });
+
+    showTooltip = (text) => {
+        this.setState({showText:text, showTooltip: true });
         setTimeout(() => {
-            this.setState({ showTooltip: false });
+            this.setState({text:"", showTooltip: false });
         }, 1000); // Tooltip will stay visible for 2 seconds
     }
     // Kullanıcı bağlantı durumu düşürme işlevi
@@ -133,25 +139,92 @@ cancelDisconnect = (roomId) => {
                     conversationRef.onDisconnect().cancel(); // Firebase'de onDisconnect'i iptal et
                 
             };
-
-        renderItem = ({ item, index }) => {
-            const { roomId, conversationId,name, groupId} = this.props.route.params;
-            const isConversation = Boolean(conversationId);
-            const isGroup = Boolean(groupId);
-            const userId = firebase.auth().currentUser.uid;
-            if (conversationId) {
-                return <Message item={item} index={index} otherUser={name}   isConversation={isConversation} read={item.read}></Message>;
-            } else if (roomId) {
-                return <Message item={item} index={index}></Message>;
-            }
-            else if(groupId){
-                return <TouchableOpacity onLongPress={() => {
-                    if (item.userId === userId) {
-                        this.openModall(item.id);
-                    }
-                }}><Message item={item} index={index} isGroup={isGroup} read={this.state.allMembers.every(member => item.read.includes(member))}/></TouchableOpacity>;
-            }
-        };
+            formatDate = (date) => {
+                const today = moment().startOf('day');
+                const messageDay = moment(date).startOf('day');
+                const diffDays = today.diff(messageDay, 'days');
+            
+                if (diffDays === 0) {
+                    return 'Today';
+                } else if (diffDays === 1) {
+                    return 'Yesterday';
+                } else if (diffDays < 7) {
+                    return `${diffDays} days ago`;
+                } else {
+                    return moment(date).format('MMMM D, YYYY');
+                }
+            };
+            renderItem = ({ item, index }) => {
+                const { roomId, conversationId, name, groupId } = this.props.route.params;
+                const isConversation = Boolean(conversationId);
+                const isGroup = Boolean(groupId);
+                const userId = firebase.auth().currentUser.uid;
+            
+                // Mevcut mesajın tarihini alın
+                const messageDate = new Date(item.timestamp);
+                const formattedMessageDate = this.formatDate(messageDate);
+            
+                // Önceki mesajın tarihini kontrol edin
+                let previousMessageDate;
+                let formattedPreviousMessageDate;
+                if (index < this.state.messages.length - 1) {
+                    const previousMessage = this.state.messages[index + 1];
+                    previousMessageDate = new Date(previousMessage.timestamp);
+                    formattedPreviousMessageDate = this.formatDate(previousMessageDate);
+                }
+            
+                const MessageComponent = (
+                    <>
+                        {(index === this.state.messages.length - 1 || formattedMessageDate !== formattedPreviousMessageDate) && (
+                            <View style={style.dateSeparator}>
+                                <Text style={style.dateSeparatorText}>
+                                    {formattedMessageDate}
+                                </Text>
+                            </View>
+                        )}
+                        {conversationId && (
+                            <Message
+                                item={item}
+                                index={index}
+                                otherUser={name}
+                                isConversation={isConversation}
+                                read={item.read}
+                                openModall={this.openModall}  // Pass openModall as a prop
+                            />
+                        )}
+                        {roomId && (
+                            <Message
+                                item={item}
+                                index={index}
+                            />
+                        )}
+                        {groupId && (
+                            <TouchableOpacity
+                                onLongPress={() => {
+                                    if (item.userId === userId) {
+                                        this.openModall(item.id);
+                                    }
+                                }}
+                                onPress={() => {
+                                    if (this.state.showOptionsPanel) {
+                                        this.handleCloseOptionsPanel();
+                                    }
+                                }}
+                            >
+                                <Message
+                                    item={item}
+                                    index={index}
+                                    isGroup={isGroup}
+                                    read={this.state.allMembers.every(member => item.read.includes(member))}
+                                    openModall={this.openModall}  // Pass openModall as a prop
+                                />
+                            </TouchableOpacity>
+                        )}
+                    </>
+                );
+            
+                return MessageComponent;
+            };
         
         getStatusText = () => {
             const { otherUserInWrite, otherUserInChat, otherUserIsOnline, otherUserLastOnline, members } = this.state;
@@ -592,7 +665,7 @@ this.handleLeaveChat(conversationId);
     };
     
     
-    handleSend = async (messageType = "text") => {
+    handleSend = async (messageType = "text",url="") => {
         const { text,selectedFriends } = this.state;
         const { roomId, conversationId, groupId, name } = this.props.route.params;
     
@@ -705,7 +778,7 @@ this.handleLeaveChat(conversationId);
                     body: JSON.stringify({
                         token: token,
                         title: `${name}`,
-                        body: `${userName}: ${text}`
+                        body: messageType=="image"?`${userName}: 📷`:`${userName}: ${text}`
                     })
                 }).then(response => response.json())
                     .then(data => {
@@ -721,7 +794,7 @@ this.handleLeaveChat(conversationId);
         }
     
         let messageData = {
-            text: messageType === "vibration" ? "" : text,
+            text: messageType === "vibration" ? "":messageType === "image" ? url : text,
             userId: userId,
             userName: userName,
             timestamp: timestamp,
@@ -749,7 +822,7 @@ this.handleLeaveChat(conversationId);
                         body: JSON.stringify({
                             token: token,
                             title: `${userName}`,
-                            body: text
+                            body: messageType=="image"?"📷":text
                         })
                     }).then(response => response.json())
                         .then(data => {
@@ -992,157 +1065,264 @@ this.handleLeaveChat(conversationId);
             selectAll: !selectAll,
         });
     };
+ 
+    handleToggleOptionsPanel = () => {
+        this.setState({ showOptionsPanel: !this.state.showOptionsPanel });
+    };
+
+    handleCloseOptionsPanel = () => {
+        this.setState({ showOptionsPanel: false });
+    };
+
+
+     selectImage = () => {
+        ImageCropPicker.openPicker({
+            width: 300,
+            height: 300,
+            cropping: false,
+        }).then(image => {
+            this.handleCloseOptionsPanel()
+            this.uploadImage(image.path);
+        }).catch(error => {
+            this.handleCloseOptionsPanel()
+            this.showTooltip("Transaction Canceled");
+        });
+    };
+    
+     takePhoto = () => {
+        ImageCropPicker.openCamera({
+            width: 300,
+            height: 300,
+            cropping: false,
+        }).then(image => {
+            this.handleCloseOptionsPanel()
+            this.uploadImage(image.path);
+        }).catch(error => {
+            this.handleCloseOptionsPanel()
+            this.showTooltip("Transaction Canceled");
+        });
+    };
+
+    uploadImage = async (imagePath) => {
+        const { conversationId,groupId } = this.props.route.params;
+
+        const filename = imagePath.substring(imagePath.lastIndexOf('/') + 1);
+        let storageRef;
+        if(conversationId){
+             storageRef = storage().ref(`conversations/${conversationId}/${filename}`);
+        }else if(groupId){
+             storageRef = storage().ref(`groups/${groupId}/${filename}`);
+        }
+
+
+        const uploadTask = storageRef.putFile(imagePath);
+
+        uploadTask.on('state_changed', 
+            (snapshot) => {
+                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                console.log('Upload is ' + progress + '% done');
+                this.setState({showText:"Loading photo", showTooltip: true });
+            }, 
+            (error) => {
+                console.error('Upload failed:', error);
+                this.showTooltip("An Error Occurred");
+            }, 
+            () => {
+                uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
+                    console.log('File available at', downloadURL);
+                    this.setState({showText:"", showTooltip: false });
+                    this.handleSend("image",downloadURL);
+                });
+            }
+        );
+    };
     render() {
-        const { text, messages, connectedUserCount, otherUserInChat, showTooltip, showModal, selectedFriends,activeUsers,showModall,sections,selectAll  } = this.state;
+        const { text, messages, connectedUserCount, otherUserInChat, showTooltip,showText, showModal, selectedFriends, activeUsers, showModall, sections, selectAll, showOptionsPanel } = this.state;
         const { roomId, conversationId, groupId } = this.props.route.params;
         const inChatMembersCount = Object.values(this.state.members).filter(member => member.inChat).length;
-
-    
     
         return (
-            <SafeAreaView style={{ flex: 1 }}>
-                {roomId && (
-                    <View style={{ padding: 10, backgroundColor: '#ddd', alignItems: 'center', justifyContent: 'center' }}>
-                        <Text>Connected Users: {connectedUserCount}</Text>
-                    </View>
-                )}
-                <FlatList
-                    inverted
-                    ref={(ref) => this.flatListRef = ref}
-                    data={messages}
-                    style={style.flatlist}
-                    renderItem={this.renderItem}
-                    keyExtractor={(item) => item.id}
-                />
-                <View style={style.inputArea}>
-                    <View style={{ alignItems: 'center', flexDirection: 'row' }}>
-                        <TextInput
-                            value={text}
-                            style={style.input}
-                            placeholder='Write message..'
-                            onChangeText={this.handleTextInputChange}
-                            onEndEditing={this.handleTextInputEndEditing}
-                        />
-                        <TouchableOpacity onPress={()=>this.handleSend()}>
-                            <Icon name={"paper-plane"} size={25} color='#FF8400'></Icon>
-                        </TouchableOpacity>
-                        {(conversationId || groupId) && (
-                            <View style={{ position: 'relative' }}>
-                                <TouchableOpacity onPress={() => (conversationId) ? !otherUserInChat ? this.showTooltip() : this.handleSend("vibration") : inChatMembersCount > 0 ? this.openModal() : this.showTooltip()}>
-                                    <Icon name="wave-square" size={24} color={(conversationId) ? otherUserInChat ? "#FF8400" : "gray" : inChatMembersCount > 0 ? "#FF8400" : "gray"} style={{ padding: 10 }} />
-                                </TouchableOpacity>
-                                {showTooltip && (
-                                    <View style={style.tooltip}>
-                                        <Text style={style.tooltipText}>
-                                            {conversationId
-                                                ? `${this.state.userName} is currently not in chat`
-                                                : 'Currently, no one is in chat'}
-                                        </Text>
-                                    </View>
-                                )}
+            <TouchableWithoutFeedback onPress={this.handleCloseOptionsPanel}>
+                <SafeAreaView style={{ flex: 1 }}>
+                    <View style={{ flex: 1 }}>
+                        {roomId && (
+                            <View style={{ padding: 10, backgroundColor: '#ddd', alignItems: 'center', justifyContent: 'center' }}>
+                                <Text>Connected Users: {connectedUserCount}</Text>
                             </View>
                         )}
-                    </View>
+                        <View style={{ flex: 1, position: 'relative' }}>
+                            <FlatList
+                                inverted
+                                ref={(ref) => (this.flatListRef = ref)}
+                                data={messages}
+                                style={style.flatlist}
+                                renderItem={this.renderItem}
+                                keyExtractor={(item) => item.id}
+                            />
+                          {showTooltip && (
+    <View style={style.tooltipContainer}>
+        <View style={style.tooltip}>
+            {showText === "Loading photo" ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={style.tooltipText}>{showText}</Text>
+                    <ActivityIndicator size="small" color="#FF8400" style={{ paddingLeft: 5 }} />
                 </View>
-    
-                <Modal
-                visible={showModal}
-                transparent={true}
-                animationType="fade"
-            >
-                <TouchableWithoutFeedback onPress={() => this.setState({ showModal: false, selectedFriends: [], selectAll: false })}>
-                    <View style={style.modalBackground}>
-                        <TouchableWithoutFeedback onPress={() => {}}>
-                            <View style={style.modalContainer}>
-                                <Text style={style.modalTitle}>Users in Chat</Text>
-                                <FlatList
-                                    data={activeUsers}
-                                    keyExtractor={(item) => item.userId}
-                                    renderItem={({ item }) => (
-                                        <TouchableOpacity
-                                            style={[style.item, selectedFriends.includes(item.userId) && style.selectedItem]}
-                                            onPress={() => this.handleFriendPress(item)}
-                                        >
-                                            <Image 
-                                source={{ uri: item.picture }} 
-                                style={style.profileImage} 
-                            />
-                                            <View>
-                                                <Text style={style.title}>{item.userName}</Text>
-                                                <Text style={style.name}>{item.bio}</Text>
-                                            </View>
-                                        </TouchableOpacity>
-                                    )}
-                                />
-                                <View style={style.selectAllContainer}>
-                                    <CheckBox 
-                                        value={selectAll}
-                                        style={{alignItems:'center'}}
-                                        tintColors={{ true: '#FF8400', false: '#000' }}
-                                        onValueChange={this.handleSelectAll}
+            ) : (
+                <Text style={style.tooltipText}>{showText}</Text>
+            )}
+        </View>
+    </View>
+)}
+                        </View>
+                        <View style={style.inputArea}>
+                            <TouchableWithoutFeedback onPress={() => {}}>
+                                <View style={{ alignItems: 'center', flexDirection: 'row' }}>
+                                    <TextInput
+                                        value={text}
+                                        style={style.input}
+                                        placeholder="Write message.."
+                                        onChangeText={this.handleTextInputChange}
+                                        onEndEditing={this.handleTextInputEndEditing}
+                                        onFocus={this.handleCloseOptionsPanel}
                                     />
-                                    <TouchableOpacity onPress={this.handleSelectAll}>
-                                        <Text style={style.selectAllText}>Select All Users</Text>
+                                    {text.trim() !== "" && (
+                                    <TouchableOpacity onPress={()=>this.handleSend()}>
+                                        <Icon name={"paper-plane"} size={25} color='#FF8400' />
                                     </TouchableOpacity>
-                                </View>
-                                <TouchableOpacity
-    style={style.vibrateButton}
-    onPress={async () => {
-        await this.handleSend("vibration");
-        this.setState({ selectedFriends: [], selectAll: false,showModal: false });
-    }}
->
-                                    <Text style={style.vibrateButtonText}>Vibrate</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </TouchableWithoutFeedback>
-                    </View>
-                </TouchableWithoutFeedback>
-            </Modal>
-
-            <Modal
-                visible={showModall}
-                transparent={true}
-                animationType="fade"
-            >
-                <TouchableWithoutFeedback onPress={() => this.setState({ showModall: false })}>
-                    <View style={style.modalBackground}>
-                        <TouchableWithoutFeedback onPress={() => {}}>
-                            <View style={style.modalContainer}>
-                                <Text style={style.modalTitle}>Message Status</Text>
-                                <SectionList
-                                    sections={sections}
-                                    keyExtractor={(item) => item.userId}
-                                    renderItem={({ item, section }) => (
-                                        <View style={style.item}>
-                                             <Image 
-                                source={{ uri: item.picture }} 
-                                style={style.profileImage} 
-                            />
-                                            <View>
-                                                <Text style={style.title}>{item.userName}</Text>
-                                                <Text style={style.name}>{item.bio}</Text>
-                                            </View>
-                                            <View style={{ flex: 1 }} />
-                                            <Icon
-                                                name={'check'}
-                                                size={11}
-                                                style={{ color: section.title === 'Seen' ? '#0f73ae' : 'black', marginLeft: 10 }}
-                                            />
+                                )}
+                                    {(conversationId || groupId) && (
+                                        <View style={{ position: 'relative' }}>
+                                            <TouchableOpacity onPress={this.handleToggleOptionsPanel}>
+                                                <Icon name="plus" size={24} color="#FF8400" style={{ paddingRight:5, paddingLeft:text.trim()==""?5:15  }} />
+                                            </TouchableOpacity> 
                                         </View>
                                     )}
-                                    renderSectionHeader={({ section: { title } }) => (
-                                        <Text style={{  fontSize: 20,
-                                            marginBottom: 10,
-                                            textAlign: 'left',  }}>{title}</Text>
-                                    )}
-                                />
+                                </View>
+                            </TouchableWithoutFeedback>
+                        </View>
+                        {showOptionsPanel && (
+                                <TouchableWithoutFeedback onPress={() => {}}>
+                                <View style={style.optionsPanel}>
+                                    <View style={style.optionRow}>
+                                        <TouchableOpacity onPress={() => (conversationId) ? !otherUserInChat ? this.showTooltip(`${this.state.userName} is currently not in chat`) : this.handleSend("vibration") : inChatMembersCount > 0 ? this.openModal() : this.showTooltip( 'Currently, no one is in chat')} style={style.option}>
+                                            <View style={style.iconCircle}>
+                                                <Icon name="wave-square" size={24} color="#FF8400" />
+                                            </View>
+                                            <Text style={style.optionText}>Send Vibration</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={this.takePhoto} style={style.option}>
+                                            <View style={style.iconCircle}>
+                                                <Icon name="camera" size={24} color="#FF8400" />
+                                            </View>
+                                            <Text style={style.optionText}>Take Picture</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={this.selectImage} style={style.option}>
+                                            <View style={style.iconCircle}>
+                                                <Icon name="image" size={24} color="#FF8400" />
+                                            </View>
+                                            <Text style={style.optionText}>Open Gallery</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            </TouchableWithoutFeedback>
+                        )}
+                    </View>
+                    <Modal
+                        visible={showModal}
+                        transparent={true}
+                        animationType="fade"
+                    >
+                        <TouchableWithoutFeedback onPress={() => this.setState({ showModal: false, selectedFriends: [], selectAll: false })}>
+                            <View style={style.modalBackground}>
+                                <TouchableWithoutFeedback onPress={() => {}}>
+                                    <View style={style.modalContainer}>
+                                        <Text style={style.modalTitle}>Users in Chat</Text>
+                                        <FlatList
+                                            data={activeUsers}
+                                            keyExtractor={(item) => item.userId}
+                                            renderItem={({ item }) => (
+                                                <TouchableOpacity
+                                                    style={[style.item, selectedFriends.includes(item.userId) && style.selectedItem]}
+                                                    onPress={() => this.handleFriendPress(item)}
+                                                >
+                                                    <Image 
+                                                        source={{ uri: item.picture }} 
+                                                        style={style.profileImage} 
+                                                    />
+                                                    <View>
+                                                        <Text style={style.title}>{item.userName}</Text>
+                                                        <Text style={style.name}>{item.bio}</Text>
+                                                    </View>
+                                                </TouchableOpacity>
+                                            )}
+                                        />
+                                        <View style={style.selectAllContainer}>
+                                            <CheckBox 
+                                                value={selectAll}
+                                                style={{alignItems:'center'}}
+                                                tintColors={{ true: '#FF8400', false: '#000' }}
+                                                onValueChange={this.handleSelectAll}
+                                            />
+                                            <TouchableOpacity onPress={this.handleSelectAll}>
+                                                <Text style={style.selectAllText}>Select All Users</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                        <TouchableOpacity
+                                            style={style.vibrateButton}
+                                            onPress={async () => {
+                                                await this.handleSend("vibration");
+                                                this.setState({ selectedFriends: [], selectAll: false, showModal: false });
+                                            }}
+                                        >
+                                            <Text style={style.vibrateButtonText}>Vibrate</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </TouchableWithoutFeedback>
                             </View>
                         </TouchableWithoutFeedback>
-                    </View>
-                </TouchableWithoutFeedback>
-            </Modal>
-            </SafeAreaView>
+                    </Modal>
+                    <Modal
+                        visible={showModall}
+                        transparent={true}
+                        animationType="fade"
+                    >
+                        <TouchableWithoutFeedback onPress={() => this.setState({ showModall: false })}>
+                            <View style={style.modalBackground}>
+                                <TouchableWithoutFeedback onPress={() => {}}>
+                                    <View style={style.modalContainer}>
+                                        <Text style={style.modalTitle}>Message Status</Text>
+                                        <SectionList
+                                            sections={sections}
+                                            keyExtractor={(item) => item.userId}
+                                            renderItem={({ item, section }) => (
+                                                <View style={style.item}>
+                                                    <Image 
+                                                        source={{ uri: item.picture }} 
+                                                        style={style.profileImage} 
+                                                    />
+                                                    <View>
+                                                        <Text style={style.title}>{item.userName}</Text>
+                                                        <Text style={style.name}>{item.bio}</Text>
+                                                    </View>
+                                                    <View style={{ flex: 1 }} />
+                                                    <Icon
+                                                        name={'check'}
+                                                        size={11}
+                                                        style={{ color: section.title === 'Seen' ? '#0f73ae' : 'black', marginLeft: 10 }}
+                                                    />
+                                                </View>
+                                            )}
+                                            renderSectionHeader={({ section: { title } }) => (
+                                                <Text style={{ fontSize: 20, marginBottom: 10, textAlign: 'left' }}>{title}</Text>
+                                            )}
+                                        />
+                                    </View>
+                                </TouchableWithoutFeedback>
+                            </View>
+                        </TouchableWithoutFeedback>
+                    </Modal>
+                </SafeAreaView>
+            </TouchableWithoutFeedback>
         );
     }
 }
@@ -1152,7 +1332,6 @@ const style = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         marginTop: 10,
-        
     },
     profileImage: {
         width: 50,
@@ -1197,19 +1376,23 @@ const style = StyleSheet.create({
         paddingLeft: 20,
         flex: 1,
         height: 50,
-        marginRight: 20
+        marginRight: 10
+    },
+    tooltipContainer: {
+        position: 'absolute',
+        bottom: 0, // Adjust this value as needed to position above the input area
+        left: 0,
+        right: 0,
+        alignItems: 'center', // Center horizontally
+        zIndex: 1000, // Ensure it appears above other elements
     },
     tooltip: {
-        position: 'absolute',
-        bottom: 40,
-        right: 0,
+        width: '100%',
         backgroundColor: 'rgba(255, 255, 255, 0.6)', // Lighter background color
         padding: 10, // Increased padding
         borderRadius: 5,
-        width: 200, // Increased width
         justifyContent: 'center', // Center the text horizontally
         alignItems: 'center', // Center the text horizontally
-    
     },
     tooltipText: {
         color: '#000',
@@ -1265,6 +1448,42 @@ const style = StyleSheet.create({
     vibrateButtonText: {
         color: 'white',
         fontWeight: 'bold',
+    },
+    optionsPanel: {
+        borderRadius: 10,
+        padding: 10,
+        zIndex: 1000,
+    },
+    optionRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        alignItems: 'center',
+    },
+    option: {
+        alignItems: 'center',
+    },
+    iconCircle: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'white', // or any color you prefer
+        marginBottom: 5,
+    },
+    optionText: {
+        fontSize: 14,
+    },
+    dateSeparator: {
+        alignItems: 'center',
+        marginVertical: 10,
+        
+    },
+    dateSeparatorText: {
+        backgroundColor: 'rgba(221,221,221,0.6)',
+        padding: 5,
+        borderRadius: 5,
+        paddingHorizontal:15
     },
 });
 
