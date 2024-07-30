@@ -7,7 +7,7 @@ import { FlatList } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { useNavigation } from '@react-navigation/native';
 
-const Messages = () => {
+const Messages = ({filterText}) => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [friends, setFriends] = useState([]);
     const [conversations, setConversations] = useState([]);
@@ -199,11 +199,16 @@ const Messages = () => {
         // Navigate to chat page
         navigation.navigate('Chat', { conversationId, name: friend.userName });
     };
-    
+
+    const filteredMessages = filterText.trim() === ""
+    ? conversations
+    : conversations.filter(message =>
+        message.friend.userName.toLowerCase().includes(filterText.toLowerCase())
+    );
     return (
         <View style={styles.container}>
             <FlatList
-                data={conversations}
+                data={filteredMessages}
                 keyExtractor={(item) => item.conversationId}
                 renderItem={({ item }) => (
                     <TouchableOpacity

@@ -108,7 +108,13 @@ class Rooms extends Component {
     }
 
     render() {
-        const { newChatRoomHeight, isNewChatRoomVisible, newChatRoomButtonText, chatRoomName } = this.state;
+        const { newChatRoomHeight, isNewChatRoomVisible, newChatRoomButtonText, chatRoomName,rooms } = this.state;
+        var filterText=this.props.filterText
+        const filteredRooms = filterText.trim() === ""
+        ? rooms
+        : rooms.filter(room =>
+            room.name.toLowerCase().includes(filterText.toLowerCase())
+        );
         return (
             <View style={styles.container}>
                 <TouchableOpacity style={[styles.newButton, { marginBottom: isNewChatRoomVisible ? 0 : 20 }]} onPress={this.toggleNewChatRoom}>
@@ -129,7 +135,7 @@ class Rooms extends Component {
                 )}
 
                 <FlatList
-                    data={this.state.rooms}
+                    data={filteredRooms}
                     renderItem={this.renderItem}
                     keyExtractor={(item) => item.id}
                     ItemSeparatorComponent={() => (

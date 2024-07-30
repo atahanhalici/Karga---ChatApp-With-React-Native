@@ -19,6 +19,7 @@ class Home extends Component {
             isSearchBarVisible: false,
             isNotificationMenuVisible: false,
             notifications: [],
+            filterText:"",
         };
     }
 
@@ -155,7 +156,7 @@ class Home extends Component {
     }
 
     handleTabPress = (tab) => {
-        this.setState({ selectedTab: tab });
+        this.setState({ selectedTab: tab,filterText:"" });
     }
 
     toggleSearchBar = () => {
@@ -191,11 +192,11 @@ class Home extends Component {
 
         switch (selectedTab) {
             case 'Messages':
-                return <Messages />;
+                return <Messages filterText={this.state.filterText}/>;
             case 'Groups':
-                return <Groups />;
+                return <Groups filterText={this.state.filterText}/>;
             case 'Rooms':
-                return <Rooms navigation={navigation} />;
+                return <Rooms navigation={navigation} filterText={this.state.filterText}/>;
             case 'Profile':
                 return <Profile />;
             default:
@@ -272,6 +273,8 @@ class Home extends Component {
                                 style={styles.searchInput}
                                 placeholder="Search..."
                                 placeholderTextColor="#FF8400"
+                                value={this.state.filterText}
+                                onChangeText={(text) => this.setState({ filterText: text })}
                             />
                         </Animated.View>
                     )}

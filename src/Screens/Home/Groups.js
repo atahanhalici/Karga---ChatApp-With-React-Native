@@ -7,7 +7,7 @@ import { FlatList } from 'react-native-gesture-handler';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { useNavigation } from '@react-navigation/native';
 
-const Groups = () => {
+const Groups = ({filterText}) => {
     const [groups, setGroups] = useState([]);
     const [friends, setFriends] = useState([]);
     const [filteredFriends, setFilteredFriends] = useState([]);
@@ -282,11 +282,15 @@ const Groups = () => {
         }).start();
     };
 
-
+    const filteredGroups = filterText.trim() === ""
+    ? groups
+    : groups.filter(group =>
+        group.groupName.toLowerCase().includes(filterText.toLowerCase())
+    );
     return (
         <View style={styles.container}>
             <FlatList
-                data={groups}
+                data={filteredGroups}
                 keyExtractor={(item) => item.groupId}
                 renderItem={({ item }) => (
                     <TouchableOpacity
