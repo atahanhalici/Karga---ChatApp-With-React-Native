@@ -81,7 +81,7 @@ const Message = ({ item, index, otherUser, isConversation, read, isGroup, openMo
                 backgroundColor: (userId === item.userId) ? '#FF8400' : '#ddd'
             }]}>
                 {item.messageType === "image" ? (
-                    <TouchableOpacity onPress={handleImagePress} onLongPress={() => {
+                    <TouchableOpacity onPress={handleImagePress} activeOpacity={1} onLongPress={() => {
                         if (item.userId === userId && isGroup) {
                             openModall(item.id);
                         }

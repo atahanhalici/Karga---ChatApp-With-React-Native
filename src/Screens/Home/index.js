@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, Animated, TextInput, Dimensions, Modal, TouchableWithoutFeedback, FlatList } from 'react-native';
+import { View, TouchableOpacity, Text, StyleSheet, Animated, TextInput, Dimensions, Modal, TouchableWithoutFeedback, FlatList,Image } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import auth from '@react-native-firebase/auth';
@@ -252,7 +252,9 @@ class Home extends Component {
             >
                 <View style={{ marginHorizontal: 15, marginVertical: 20 }}>
                     <View style={[styles.header, { marginBottom: isSearchBarVisible ? 0 : 20 }]}>
+                    <Image style={{width:35,height:35,marginRight:10}} source={require('../../../assets/images/logo_icon.png')}></Image>
                         <Text style={styles.title}>Karga</Text>
+                        <View style={{flex:1}}></View>
                         <View style={styles.headerIcons}>
                             <TouchableOpacity onPress={this.toggleNotificationMenu} style={styles.iconButton}>
                                 <Icon name={"bell"} size={27} color={"white"} />

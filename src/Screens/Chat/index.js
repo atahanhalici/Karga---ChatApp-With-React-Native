@@ -200,6 +200,7 @@ cancelDisconnect = (roomId) => {
                         )}
                         {groupId && (
                             <TouchableOpacity
+                            activeOpacity={1}
                                 onLongPress={() => {
                                     if (item.userId === userId) {
                                         this.openModall(item.id);
