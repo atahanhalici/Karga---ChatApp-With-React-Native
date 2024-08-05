@@ -63,7 +63,7 @@ class Home extends Component {
         });
     }
 
-    handleAccept = async (groupId, userId) => {
+    handleAcceptGroup = async (groupId, userId) => {
 
 
         const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}`);
@@ -122,7 +122,64 @@ class Home extends Component {
 
     }
 
-    handleReject = async (groupId, userId) =>{
+    handleAcceptFriend = async (senderId, userId) => {
+        const dbUrl = 'https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/';
+        const userRefs = firebase.app().database(dbUrl).ref(`/users/${userId}/notifications`);
+    
+        await userRefs.once('value').then(async (snapshot) => {
+            const notifications = snapshot.val() || {};
+            const updates = {};
+            
+            for (const key in notifications) {
+                if (notifications[key].senderId === senderId) {
+                    updates[key] = null; // Delete the matching notification
+                }
+            }
+    
+            if (Object.keys(updates).length > 0) {
+                await userRefs.update(updates);
+            }
+        });
+    
+        const userRef = firebase.app().database(dbUrl).ref(`/users/${userId}`);
+        const senderRef = firebase.app().database(dbUrl).ref(`/users/${senderId}`);
+        
+        const userSnapshot = await userRef.once('value');
+        const senderSnapshot = await senderRef.once('value');
+        
+        const userData = userSnapshot.val() || {};
+        const senderData = senderSnapshot.val() || {};
+        
+        const userFriends = userData.friends || [];
+        const senderFriends = senderData.friends || [];
+    
+        // Add friends if not already added
+        if (!userFriends.includes(senderId)) {
+            userFriends.push(senderId);
+            await userRef.update({ friends: userFriends });
+        }
+    
+        if (!senderFriends.includes(userId)) {
+            senderFriends.push(userId);
+            await senderRef.update({ friends: senderFriends });
+        }
+    
+        // Remove senderId from userRef's friendRequests
+        const userFriendRequests = userData.friendRequests || {};
+        if (userFriendRequests[senderId]) {
+            delete userFriendRequests[senderId];
+            await userRef.update({ friendRequests: userFriendRequests });
+        }
+    
+        // Remove userId from senderRef's senderRequests
+        const senderRequests = senderData.sendRequests || {};
+        if (senderRequests[userId]) {
+            delete senderRequests[userId];
+            await senderRef.update({ sendRequests: senderRequests });
+        }
+    }
+
+    handleRejectGroup = async (groupId, userId) =>{
         const userRefs = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}/notifications`);
 
         await userRefs.once('value').then(async (snapshot) => {
@@ -132,17 +189,62 @@ class Home extends Component {
             const updates = {};
             
             for (const key in notifications) {
-                if (notifications[key].id === groupId) {
-                    // Eşleşen nesneyi silmek için key değerini kaydedin
-                    updates[key] = null;
+                    if (notifications[key].senderId === groupId) {
+                        // Eşleşen nesneyi silmek için key değerini kaydedin
+                        updates[key] = null;
+                    }
                 }
-            }
             
             // Silme işlemini gerçekleştirin
             if (Object.keys(updates).length > 0) {
                 await userRefs.update(updates);
             }
         });
+
+    }
+    handleRejectFriend = async (senderId, userId) =>{
+        try {
+            console.log('Removing friend request...');
+    
+            // Reference to the other user's notifications
+            const otherUserNotificationsRef = firebase
+                .app()
+                .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .ref(`/users/${userId}/notifications`);
+    
+            // Find and remove the specific notification
+            await otherUserNotificationsRef.once('value', async (snapshot) => {
+                const notifications = snapshot.val() || {};
+                for (const key in notifications) {
+                    if (notifications[key].senderId === senderId) {
+                        await otherUserNotificationsRef.child(key).remove();
+                        break;
+                    }
+                }
+            });
+    
+            // Reference to the other user's friendRequests
+            const otherUserFriendRequestsRef = firebase
+                .app()
+                .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .ref(`/users/${userId}/friendRequests/${senderId}`);
+    
+            // Remove the friend request from the other user's data
+            await otherUserFriendRequestsRef.remove();
+    
+            // Reference to the current user's sendRequests
+            const myUserSendRequestsRef = firebase
+                .app()
+                .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .ref(`/users/${senderId}/sendRequests/${userId}`);
+    
+            // Remove the send request from the current user's data
+            await myUserSendRequestsRef.remove();
+    
+            console.log('Friend request removed successfully');
+        } catch (error) {
+            console.error('Error removing friend request:', error);
+        }
 
     }
 
@@ -189,7 +291,7 @@ class Home extends Component {
     renderContent = () => {
         const { selectedTab } = this.state;
         const { navigation } = this.props;
-
+        const userId = firebase.auth().currentUser.uid;
         switch (selectedTab) {
             case 'Messages':
                 return <Messages filterText={this.state.filterText}/>;
@@ -217,14 +319,32 @@ class Home extends Component {
                             <Text style={{ fontWeight: 'bold' }}>{item.senderName}</Text> invites you to join the group <Text style={{ fontWeight: 'bold' }}>{item.name}</Text>
                         </Text>
                     )}
-                    <View style={styles.notificationActions}>
-                        <TouchableOpacity style={styles.notificationButton}  onPress={() => this.handleReject(item.id, userId)}>
-                            <Text style={styles.notificationButtonText}>Reject</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.notificationButton} onPress={() => this.handleAccept(item.id, userId)}>
-                            <Text style={styles.notificationButtonText}>Accept</Text>
-                        </TouchableOpacity>
-                    </View>
+                    {item.notificationType === "friend" && (
+                        <Text style={styles.notificationText}>
+                            <Text style={{ fontWeight: 'bold' }}>{item.senderName}</Text> invites you to add them as a friend <Text style={{ fontWeight: 'bold' }}>{item.name}</Text>
+                        </Text>
+                    )}
+<View style={styles.notificationActions}>
+    {item.notificationType === "group"? (
+        <>
+            <TouchableOpacity style={styles.notificationButton} onPress={() => this.handleRejectGroup(item.id, userId)}>
+                <Text style={styles.notificationButtonText}>Reject</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.notificationButton} onPress={() => this.handleAcceptGroup(item.id, userId)}>
+                <Text style={styles.notificationButtonText}>Accept</Text>
+            </TouchableOpacity>
+        </>
+    ) : item.notificationType === "friend" ? (
+        <>
+            <TouchableOpacity style={styles.notificationButton} onPress={() => this.handleRejectFriend(item.senderId, userId)}>
+                <Text style={styles.notificationButtonText}>Reject</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.notificationButton} onPress={() => this.handleAcceptFriend(item.senderId, userId)}>
+                <Text style={styles.notificationButtonText}>Accept</Text>
+            </TouchableOpacity>
+        </>
+    ) : null}
+</View>
                 </View>
                 {!isLastItem && <View style={styles.divider} />}
             </View>
@@ -244,6 +364,7 @@ class Home extends Component {
     render() {
         const { selectedTab, searchBarHeight, isSearchBarVisible, isNotificationMenuVisible, notifications } = this.state;
         const hasNotifications = notifications.length > 0;
+       // this.logout();
         return (
             <LinearGradient
                 style={styles.background}

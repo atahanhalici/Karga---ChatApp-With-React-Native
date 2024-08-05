@@ -6,6 +6,8 @@ import database from '@react-native-firebase/database';
 import storage from '@react-native-firebase/storage';
 import * as ImagePicker from 'react-native-image-picker';
 import ImageCropPicker from 'react-native-image-crop-picker';
+import { format } from 'date-fns';
+import { useNavigation } from '@react-navigation/native';
 
 
 const Profile = () => {
@@ -18,7 +20,24 @@ const Profile = () => {
     const [uploading, setUploading] = useState(false);
     const [transferred, setTransferred] = useState(0);
     const userId = firebase.auth().currentUser.uid;
-
+    const navigation = useNavigation();
+    const renderOption = (iconName, title) => {
+        return (
+            <TouchableOpacity onPress={()=>{
+                if(title==="Edit Profile"){
+                    navigation.navigate('EditProfile') 
+                }
+            }} style={styles.option}>
+                <View style={styles.optionLeft}>
+                    <View style={styles.iconBackground}>
+                        <Icon name={iconName} size={28} color="#FFF" />
+                    </View>
+                    <Text style={styles.optionText}>{title}</Text>
+                </View>
+                <Icon name="keyboard-arrow-right" size={24} color="#666" />
+            </TouchableOpacity>
+        );
+    };
     useEffect(() => {
         const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`);
         userRef.on('value', snapshot => {
@@ -141,7 +160,10 @@ const Profile = () => {
         setEditModalVisible(false);
     };
     
-
+    const formatDate = (timestamp) => {
+        const date = new Date(timestamp);
+        return format(date, 'dd MMMM yyyy');
+    };
     return (
         <ScrollView contentContainerStyle={styles.scrollContainer}>
             <View style={styles.container}>
@@ -154,7 +176,8 @@ const Profile = () => {
                     </TouchableOpacity>
                 </View>
                 <Text style={styles.username}>{user.userName}</Text>
-                <Text style={styles.bio}>{user.bio}</Text>
+                <Text style={[styles.bio, {marginBottom: 5}]}>{user.bio}</Text>
+                <Text style={[styles.bio, {marginBottom: 20, fontSize:11}]}>Join Date: {formatDate(user.createTime)}</Text>
                 
                 <View style={styles.statsContainer}>
                     <View style={styles.statItem}>
@@ -236,19 +259,7 @@ const Profile = () => {
     );
 };
 
-const renderOption = (iconName, title) => {
-    return (
-        <TouchableOpacity style={styles.option}>
-            <View style={styles.optionLeft}>
-                <View style={styles.iconBackground}>
-                    <Icon name={iconName} size={28} color="#FFF" />
-                </View>
-                <Text style={styles.optionText}>{title}</Text>
-            </View>
-            <Icon name="keyboard-arrow-right" size={24} color="#666" />
-        </TouchableOpacity>
-    );
-};
+
 
 const renderDivider = () => {
     return <View style={styles.optionDivider} />;
@@ -323,7 +334,6 @@ const styles = StyleSheet.create({
         color: '#666',
         textAlign: 'center',
         paddingHorizontal: 20,
-        marginBottom: 20,
     },
     statsContainer: {
         flexDirection: 'row',

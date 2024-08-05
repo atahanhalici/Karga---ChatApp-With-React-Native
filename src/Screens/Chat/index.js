@@ -10,7 +10,6 @@ import ImageCropPicker from 'react-native-image-crop-picker';
 import storage from '@react-native-firebase/storage';
 import moment from 'moment';
 
-
 class Chat extends Component {
     constructor(props) {
         super(props);
@@ -35,7 +34,8 @@ class Chat extends Component {
             selectAll: false,
             picture:"",
             showOptionsPanel: false,
-            showText:""
+            showText:"",
+            otherUserId:""
         };
         this.typingTimeout = null;
         this.openModall = this.openModall.bind(this);
@@ -164,7 +164,7 @@ cancelDisconnect = (roomId) => {
                 const messageDate = new Date(item.timestamp);
                 const formattedMessageDate = this.formatDate(messageDate);
             
-                // Önceki mesajın tarihini kontrol edin
+                // Bir önceki mesajın tarihini kontrol edin
                 let previousMessageDate;
                 let formattedPreviousMessageDate;
                 if (index < this.state.messages.length - 1) {
@@ -173,9 +173,12 @@ cancelDisconnect = (roomId) => {
                     formattedPreviousMessageDate = this.formatDate(previousMessageDate);
                 }
             
-                const MessageComponent = (
-                    <>
-                        {(index === this.state.messages.length - 1 || formattedMessageDate !== formattedPreviousMessageDate) && (
+                // Eğer bu mesaj, bugünkü mesajlar arasında ilkse, tarih ayracını üstte göster
+                const isNewDayMessage = index === this.state.messages.length - 1 || formattedMessageDate !== formattedPreviousMessageDate;
+            
+                return (
+                    <View>
+                        {isNewDayMessage && (
                             <View style={style.dateSeparator}>
                                 <Text style={style.dateSeparatorText}>
                                     {formattedMessageDate}
@@ -200,7 +203,7 @@ cancelDisconnect = (roomId) => {
                         )}
                         {groupId && (
                             <TouchableOpacity
-                            activeOpacity={1}
+                                activeOpacity={1}
                                 onLongPress={() => {
                                     if (item.userId === userId) {
                                         this.openModall(item.id);
@@ -221,10 +224,8 @@ cancelDisconnect = (roomId) => {
                                 />
                             </TouchableOpacity>
                         )}
-                    </>
+                    </View>
                 );
-            
-                return MessageComponent;
             };
         
         getStatusText = () => {
@@ -302,19 +303,30 @@ cancelDisconnect = (roomId) => {
     
         updateHeader = () => {
             const { conversationId, name, groupId } = this.props.route.params;
+            const {otherUserId}=this.state;
+            console.log("id"+otherUserId);
             this.props.navigation.setOptions({
                 headerTitle: () => (
-                    <View style={style.headerContainer}>
-                    {(conversationId || groupId) && this.state.picture && (
-                        <Image source={{ uri: this.state.picture }} style={style.headerImage} />
-                    )}
-                    <View>
-                        <Text style={style.headerTitle}>{name}</Text>
-                        {(conversationId || groupId) && (
-                            <Text style={style.headerSubtitle}>{this.getStatusText()}</Text>
-                        )}
-                    </View>
-                </View>
+<TouchableOpacity onPress={() => {
+    if (conversationId) {
+        this.props.navigation.navigate("UserDetails", { userId: otherUserId });
+    } else {
+        // Optionally, handle the case when conversationId is not present
+        console.log('Conversation ID is not present');
+    }
+}}>
+                        <View style={style.headerContainer}>
+                            {(conversationId || groupId) && this.state.picture && (
+                                <Image source={{ uri: this.state.picture }} style={style.headerImage} />
+                            )}
+                            <View>
+                                <Text style={style.headerTitle}>{name}</Text>
+                                {(conversationId || groupId) && (
+                                    <Text style={style.headerSubtitle}>{this.getStatusText()}</Text>
+                                )}
+                            </View>
+                        </View>
+                    </TouchableOpacity>
                 ),
             });
         };
@@ -521,7 +533,7 @@ this.handleLeaveChat(conversationId);
                 var messages = [];
                 snapshot.forEach((item) => {
                     messages.push({
-                        conversationId: item.val().conversationId,
+                        //conversationId: item.val().conversationId,
                         text: item.val().text,
                         userName: item.val().userName,
                         userId: item.val().userId,
@@ -588,7 +600,7 @@ this.handleLeaveChat(conversationId);
         const otherUserRef =  db.ref(`users/${otherUser}`);
         otherUserRef.on('value', snapshot => {
             const userStatus = snapshot.val();
-            this.setState({userName:userStatus.userName, otherUserIsOnline:userStatus.online, otherUserLastOnline:userStatus.lastOnlineTime,picture:userStatus.picture})
+            this.setState({userName:userStatus.userName, otherUserIsOnline:userStatus.online, otherUserLastOnline:userStatus.lastOnlineTime,picture:userStatus.picture,otherUserId:userStatus.userId})
           
         });
       
@@ -772,6 +784,8 @@ this.handleLeaveChat(conversationId);
         tokens.forEach(token => {
             if (messageType !== "vibration") {
                 fetch('http://192.168.0.23:3000/send-notification', {
+                   // fetch('http://192.168.50.47:3000/send-notification', {
+                  //  fetch('http://172.20.10.2:3000/send-notification', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -816,6 +830,8 @@ this.handleLeaveChat(conversationId);
                 firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`conversations/${conversationId}/`).update({ lastMessageTime: timestamp });
                 if (token && messageType !== "vibration") {
                     fetch('http://192.168.0.23:3000/send-notification', {
+                    //fetch('http://192.168.50.47:3000/send-notification', {
+                       // fetch('http://172.20.10.2:3000/send-notification', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
