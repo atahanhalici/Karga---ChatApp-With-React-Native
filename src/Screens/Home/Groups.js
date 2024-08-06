@@ -251,9 +251,9 @@ const Groups = ({filterText}) => {
             const otherUserSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${otherUser}`).once('value');
             const otherUserData = otherUserSnapshot.val();
            const token = otherUserData.fcmToken;
-            fetch('http://192.168.0.23:3000/send-notification', {
+           // fetch('http://192.168.0.23:3000/send-notification', {
               //  fetch('http://192.168.50.47:3000/send-notification', {
-               // fetch('http://172.20.10.2:3000/send-notification', {
+                fetch('http://172.20.10.2:3000/send-notification', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

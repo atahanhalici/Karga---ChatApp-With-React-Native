@@ -26,6 +26,10 @@ const Profile = () => {
             <TouchableOpacity onPress={()=>{
                 if(title==="Edit Profile"){
                     navigation.navigate('EditProfile') 
+                }else if(title==="My Friends"){
+                    navigation.navigate("Friends")
+                }else if(title==="Saved Messages"){
+                    navigation.navigate("SavedMessages")
                 }
             }} style={styles.option}>
                 <View style={styles.optionLeft}>

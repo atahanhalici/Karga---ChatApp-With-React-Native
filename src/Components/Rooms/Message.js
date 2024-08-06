@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { TouchableOpacity, Text, StyleSheet, Dimensions, View, Vibration, Image, Modal } from "react-native";
-import Icon from 'react-native-vector-icons/FontAwesome5';
+import Icon from 'react-native-vector-icons/FontAwesome';
 import auth from '@react-native-firebase/auth';
 
-const Message = ({ item, index, otherUser, isConversation, read, isGroup, openModall }) => {
+const Message = ({ item, index, otherUser, isConversation, read, isGroup, openModall,star }) => {
     const user = auth().currentUser;
     const userId = user.uid;
     const [lastVibrated, setLastVibrated] = useState(null);
@@ -75,59 +75,64 @@ const Message = ({ item, index, otherUser, isConversation, read, isGroup, openMo
     };
     return (
         <View style={(userId !== item.userId) ? style.other : style.me}>
-            <View style={[style.bubble, {
-                borderTopRightRadius: (userId === item.userId) ? 0 : 15,
-                borderTopLeftRadius: (userId === item.userId) ? 15 : 0,
-                backgroundColor: (userId === item.userId) ? '#FF8400' : '#ddd'
-            }]}>
-                {item.messageType === "image" ? (
-                    <TouchableOpacity onPress={handleImagePress} activeOpacity={1} onLongPress={() => {
-                        if (item.userId === userId && isGroup) {
-                            openModall(item.id);
-                        }
-                    }}>
-                        <Image
-                            source={{ uri: item.text }}
-                            style={{ width: 200, height: 200, marginBottom: 10 }} // Adjust width and height as needed
-                        />
-                    </TouchableOpacity>
-                ) : (
-                    <Text style={{ color: (userId === item.userId) ? 'white' : '#575757', fontSize: 15, marginBottom: 8 }}>
-                        {messageText}
-                    </Text>
+    <View style={[style.bubble, {
+        borderTopRightRadius: (userId === item.userId) ? 0 : 15,
+        borderTopLeftRadius: (userId === item.userId) ? 15 : 0,
+        backgroundColor: (userId === item.userId) ? '#FF8400' : '#ddd'
+    }]}>
+        {item.messageType === "image" ? (
+            <TouchableOpacity onPress={handleImagePress} activeOpacity={1} onLongPress={() => {
+                if (item.userId === userId && isGroup) {
+                    openModall(item.id);
+                }
+            }}>
+                <Image
+                    source={{ uri: item.text }}
+                    style={{ width: 200, height: 200, marginBottom: 10 }} // Adjust width and height as needed
+                />
+            </TouchableOpacity>
+        ) : (
+            <Text style={{ color: (userId === item.userId) ? 'white' : '#575757', fontSize: 15, marginBottom: 8 }}>
+                {messageText}
+            </Text>
+        )}
+
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ color: userId === item.userId ? 'white' : '#575757', textAlign: userId === item.userId ? 'right' : 'left', fontSize: 11 }}>
+                {item.userName}
+            </Text>
+            <View style={{flex:1}}></View>
+            <Text style={{ color: userId === item.userId ? 'white' : '#575757', textAlign: userId === item.userId ? 'right' : 'left', fontSize: 11, paddingLeft:10 }}>
+                {formatTime(item.timestamp)}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 5 }}>
+                {star && (
+                    <Icon name="star" size={14} color="grey" style={{ marginRight: 5 }} />
                 )}
-
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <Text style={{ color: userId === item.userId ? 'white' : '#575757', textAlign: userId === item.userId ? 'right' : 'left', fontSize: 11 }}>
-                        {item.userName}
-                    </Text>
-                    <View style={{flex:1}}></View>
-                    <Text style={{ color: userId === item.userId ? 'white' : '#575757', textAlign: userId === item.userId ? 'right' : 'left', fontSize: 11, paddingLeft:10 }}>
-                        {formatTime(item.timestamp)}
-                    </Text>
-
-                    {(isConversation || isGroup) && userId === item.userId && (
-                        <Icon
-                            name={'check'}
-                            size={11}
-                            style={{ color: read ? '#0f73ae' : 'black', marginLeft: 10 }}
-                        />
-                    )}
-                </View>
-
-                <Modal visible={modalVisible} transparent={true} onRequestClose={closeModal}>
-                    <View style={style.modalBackground}>
-                        <TouchableOpacity style={style.modalContainer} onPress={closeModal}>
-                            <Image
-                                source={{ uri: item.text }}
-                                style={style.fullscreenImage}
-                                resizeMode="contain"
-                            />
-                        </TouchableOpacity>
-                    </View>
-                </Modal>
+                {(isConversation || isGroup) && userId === item.userId && (
+                    <Icon
+                        name={'check'}
+                        size={14}
+                        style={{ color: read ? '#0f73ae' : 'black', marginLeft: 5 }}
+                    />
+                )}
             </View>
         </View>
+
+        <Modal visible={modalVisible} transparent={true} onRequestClose={closeModal}>
+            <View style={style.modalBackground}>
+                <TouchableOpacity style={style.modalContainer} onPress={closeModal}>
+                    <Image
+                        source={{ uri: item.text }}
+                        style={style.fullscreenImage}
+                        resizeMode="contain"
+                    />
+                </TouchableOpacity>
+            </View>
+        </Modal>
+    </View>
+</View>
+
     );
 }
 const style = StyleSheet.create({

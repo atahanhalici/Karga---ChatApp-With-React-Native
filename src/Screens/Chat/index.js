@@ -35,7 +35,8 @@ class Chat extends Component {
             picture:"",
             showOptionsPanel: false,
             showText:"",
-            otherUserId:""
+            otherUserId:"",
+            saveIds:[]
         };
         this.typingTimeout = null;
         this.openModall = this.openModall.bind(this);
@@ -154,6 +155,70 @@ cancelDisconnect = (roomId) => {
                     return moment(date).format('MMMM D, YYYY');
                 }
             };
+            handleDoubleTap = (callback) => {
+                const now = Date.now();
+                const DOUBLE_PRESS_DELAY = 300; // Time interval for double tap in milliseconds
+                if (this.lastTap && (now - this.lastTap) < DOUBLE_PRESS_DELAY) {
+                    // Double tap detected
+                    callback();
+                } else {
+                    this.lastTap = now;
+                }
+            };
+            saveMessage = (userId, itemId, messageId, type,senderId) => {
+                // Define the data to be saved based on type
+                const messageData = {
+                    id: itemId,
+                    type: type,
+                    messageId: messageId,
+                    senderId: senderId
+                };
+            
+                // Get a reference to the user's savedMessages list
+                const userRef = firebase
+                    .app()
+                    .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                    .ref(`users/${userId}/savedMessages`);
+            
+                // Check if the message already exists in savedMessages
+                userRef
+                    .orderByChild('messageId')
+                    .equalTo(messageId)
+                    .once('value', (snapshot) => {
+                        if (snapshot.exists()) {
+                            // If the message exists, delete it
+                            const messageKey = Object.keys(snapshot.val())[0];
+                            userRef.child(messageKey).remove()
+                                .then(() => {
+                                    console.log('Message removed successfully');
+                                })
+                                .catch((error) => {
+                                    console.error('Error removing message:', error);
+                                });
+                        } else {
+                            // If the message does not exist, save it
+                            userRef.push(messageData)
+                                .then(() => {
+                                    console.log('Message saved successfully');
+                                })
+                                .catch((error) => {
+                                    console.error('Error saving message:', error);
+                                });
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('Error checking for existing message:', error);
+                    });
+            };
+            
+             getUserSavedMessages = async (userId) => {
+                const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${userId}/savedMessages`);
+
+                userRef.on('value', (snapshot) => {
+                    const savedMessages = snapshot.val() ? Object.values(snapshot.val()) : [];
+                    this.setState({saveIds : savedMessages.map(message => message.messageId)});
+                });
+            };
             renderItem = ({ item, index }) => {
                 const { roomId, conversationId, name, groupId } = this.props.route.params;
                 const isConversation = Boolean(conversationId);
@@ -175,56 +240,77 @@ cancelDisconnect = (roomId) => {
             
                 // Eğer bu mesaj, bugünkü mesajlar arasında ilkse, tarih ayracını üstte göster
                 const isNewDayMessage = index === this.state.messages.length - 1 || formattedMessageDate !== formattedPreviousMessageDate;
-            
+                var star=false;
+                if (this.state.saveIds.includes(item.id)) {
+                    star=true
+                }else{
+                    star=false;
+                }
                 return (
                     <View>
-                        {isNewDayMessage && (
-                            <View style={style.dateSeparator}>
-                                <Text style={style.dateSeparatorText}>
-                                    {formattedMessageDate}
-                                </Text>
-                            </View>
-                        )}
-                        {conversationId && (
+                    {isNewDayMessage && (
+                        <View style={style.dateSeparator}>
+                            <Text style={style.dateSeparatorText}>
+                                {formattedMessageDate}
+                            </Text>
+                        </View>
+                    )}
+                    {conversationId && (
+                        <TouchableOpacity
+                            activeOpacity={1}
+                            onPress={() => {
+                                this.handleDoubleTap(() => {
+                                   this.saveMessage(userId,conversationId,item.id,"conversation",item.userId);
+                                    console.log('Double tap detected for conversationId');
+                                });
+                            }}
+                        >
                             <Message
                                 item={item}
                                 index={index}
                                 otherUser={name}
                                 isConversation={isConversation}
                                 read={item.read}
-                                openModall={this.openModall}  // Pass openModall as a prop
+                                openModall={this.openModall}
+                                star={star}
                             />
-                        )}
-                        {roomId && (
+                        </TouchableOpacity>
+                    )}
+                    {roomId && (
+                        <Message
+                            item={item}
+                            index={index}
+                        />
+                    )}
+                    {groupId && (
+                        <TouchableOpacity
+                            activeOpacity={1}
+                            onLongPress={() => {
+                                if (item.userId === userId) {
+                                    openModall(item.id);
+                                }
+                            }}
+                            onPress={() => {
+                                if (this.state.showOptionsPanel) {
+                                    this.handleCloseOptionsPanel();
+                                }
+                                this.handleDoubleTap(() => {
+                                    this.saveMessage(userId,groupId,item.id,"group",item.userId);
+                                    console.log('Double tap detected for groupId');
+                                });
+                            }}
+                        >
                             <Message
                                 item={item}
                                 index={index}
+                                isGroup={isGroup}
+                                read={this.state.allMembers.every(member => item.read.includes(member))}
+                                openModall={this.openModall}
+                                star={star}
                             />
-                        )}
-                        {groupId && (
-                            <TouchableOpacity
-                                activeOpacity={1}
-                                onLongPress={() => {
-                                    if (item.userId === userId) {
-                                        this.openModall(item.id);
-                                    }
-                                }}
-                                onPress={() => {
-                                    if (this.state.showOptionsPanel) {
-                                        this.handleCloseOptionsPanel();
-                                    }
-                                }}
-                            >
-                                <Message
-                                    item={item}
-                                    index={index}
-                                    isGroup={isGroup}
-                                    read={this.state.allMembers.every(member => item.read.includes(member))}
-                                    openModall={this.openModall}  // Pass openModall as a prop
-                                />
-                            </TouchableOpacity>
-                        )}
-                    </View>
+                        </TouchableOpacity>
+                    )}
+                </View>
                 );
             };
         
@@ -346,7 +432,7 @@ cancelDisconnect = (roomId) => {
         componentDidMount() {
             const { roomId, conversationId, groupId } = this.props.route.params;
             this.updateHeader();
-        
+           const userId= firebase.auth().currentUser.uid
             if (roomId) {
                 this.joinRoom(roomId);
                 firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
@@ -381,6 +467,7 @@ cancelDisconnect = (roomId) => {
                 this.handleJoinChat(conversationId);
                 this.decreaseConversationUserStatus(conversationId);
                 this.markMessagesAsRead(conversationId);
+                this.getUserSavedMessages(userId);
             }else if (groupId){
                 this.getPicture(groupId);
                 this.activeUsersListen(groupId);
@@ -390,6 +477,7 @@ cancelDisconnect = (roomId) => {
                 this.handleJoinGroup(groupId);
                 this.decreaseGroupUserStatus(groupId);
                 this.markMessagesAsReadGroup(groupId);
+                this.getUserSavedMessages(userId);
             }
         }
 
@@ -783,9 +871,9 @@ this.handleLeaveChat(conversationId);
     if(messageType!=="vibration"){
         tokens.forEach(token => {
             if (messageType !== "vibration") {
-                fetch('http://192.168.0.23:3000/send-notification', {
+                //fetch('http://192.168.0.23:3000/send-notification', {
                    // fetch('http://192.168.50.47:3000/send-notification', {
-                  //  fetch('http://172.20.10.2:3000/send-notification', {
+                    fetch('http://172.20.10.2:3000/send-notification', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -829,9 +917,9 @@ this.handleLeaveChat(conversationId);
             if (conversationId) {
                 firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`conversations/${conversationId}/`).update({ lastMessageTime: timestamp });
                 if (token && messageType !== "vibration") {
-                    fetch('http://192.168.0.23:3000/send-notification', {
+                    //fetch('http://192.168.0.23:3000/send-notification', {
                     //fetch('http://192.168.50.47:3000/send-notification', {
-                       // fetch('http://172.20.10.2:3000/send-notification', {
+                        fetch('http://172.20.10.2:3000/send-notification', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'

@@ -10,6 +10,8 @@ import Chat from "./Screens/Chat/index";
 import Messages from "./Screens/Home/Messages";
 import UserDetails from "./Screens/UserDetails";
 import EditProfile from "./Screens/EditProfile/index";
+import Friends from "./Screens/Friends";
+import SavedMessages from "./Screens/SavedMessages";
 
 const Stack=createStackNavigator();
 
@@ -27,6 +29,8 @@ render(){
     <Stack.Screen name="Messages" component={Messages} />
     <Stack.Screen name="UserDetails" component={UserDetails}options={{ headerShown: false }}></Stack.Screen>
     <Stack.Screen name="EditProfile" component={EditProfile}options={{ headerShown: false }}></Stack.Screen>
+    <Stack.Screen name="Friends" component={Friends}options={{ headerShown: false }}></Stack.Screen>
+    <Stack.Screen name="SavedMessages" component={SavedMessages}options={{ headerShown: false }}></Stack.Screen>
   </Stack.Navigator>
 </NavigationContainer>
 }

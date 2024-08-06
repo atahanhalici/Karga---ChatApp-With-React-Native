@@ -382,9 +382,11 @@ class Home extends Component {
                                 <Icon name={"bell"} size={27} color={"white"} />
                                 {hasNotifications && <View style={styles.notificationDot} />}
                             </TouchableOpacity>
-                            <TouchableOpacity onPress={this.toggleSearchBar} style={styles.iconButton}>
-                                <Icon name={"search"} size={27} color={"white"} />
-                            </TouchableOpacity>
+                            {selectedTab !== "Profile" && (
+          <TouchableOpacity onPress={this.toggleSearchBar} style={styles.iconButton}>
+            <Icon name={"search"} size={27} color={"white"} />
+          </TouchableOpacity>
+        )}
                         </View>
                     </View>
 
