@@ -857,7 +857,7 @@ this.handleLeaveChat(conversationId);
 
 
 
-                if(messageType==="vibration"){
+               /* if(messageType==="vibration"){
                     for (const friendId of selectedFriends) {
                         const friendSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${friendId}`).once('value');
                         const friendData = friendSnapshot.val();
@@ -865,7 +865,16 @@ this.handleLeaveChat(conversationId);
                             selectedUsers.push({ userId: friendId, userName: friendData.userName });
                         }
                     }
-                }
+                }*/
+                    if (messageType === "vibration") {
+                        for (const friendId of selectedFriends) {
+                            const friendSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${friendId}`).once('value');
+                            const friendData = friendSnapshot.val();
+                            if (friendData) {
+                                selectedUsers.push(friendId); // Sadece friendId'yi ekliyoruz
+                            }
+                        }
+                    }
     
                 await Promise.all(membersPromises);
     if(messageType!=="vibration"){

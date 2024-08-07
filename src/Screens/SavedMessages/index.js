@@ -30,18 +30,18 @@ const SavedMessages = () => {
             .app()
             .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
             .ref(`/users/${currentUser.uid}`);
-    
+
         const fetchUserData = async () => {
             userRef.on('value', async (snapshot) => {
                 const userData = snapshot.val();
                 setUser(userData);
-    
+
                 const messages = await fetchSavedMessages(userData.savedMessages || {});
                 setSavedMessages(messages);
                 setLoading(false);
             });
         };
-    
+
         const fetchSavedMessages = async (messages) => {
             const fetchedMessages = await Promise.all(
                 Object.keys(messages).map(async (key) => {
@@ -52,7 +52,7 @@ const SavedMessages = () => {
                         .ref(`/users/${message.senderId}`)
                         .once('value');
                     const senderData = senderSnapshot.val();
-    
+
                     let chatData, messageData;
                     if (message.type === 'group') {
                         const groupSnapshot = await firebase
@@ -61,7 +61,7 @@ const SavedMessages = () => {
                             .ref(`/groups/${message.id}`)
                             .once('value');
                         chatData = groupSnapshot.val();
-    
+
                         // Fetch the specific message from the group's messages node
                         const groupMessageSnapshot = await firebase
                             .app()
@@ -76,7 +76,7 @@ const SavedMessages = () => {
                             .ref(`/conversations/${message.id}`)
                             .once('value');
                         chatData = conversationSnapshot.val();
-    
+
                         // Fetch the specific message from the conversation's messages node
                         const conversationMessageSnapshot = await firebase
                             .app()
@@ -85,7 +85,23 @@ const SavedMessages = () => {
                             .once('value');
                         messageData = conversationMessageSnapshot.val();
                     }
-    
+
+                    // Fetch usernames for selected users
+                    const selectedUsers = await Promise.all(
+                        (messageData.selectedUsers || []).map(async (user) => {
+                            const userSnapshot = await firebase
+                                .app()
+                                .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                                .ref(`/users/${user}`)
+                                .once('value');
+                            const userData = userSnapshot.val();                  
+                            return {
+                                userId: userData.userId,
+                                userName: userData.userName,
+                            };
+                        })
+                    );
+
                     return {
                         ...message,
                         senderName: senderData.userName,
@@ -95,84 +111,71 @@ const SavedMessages = () => {
                         type: messageData.messageType,
                         timestamp: messageData.timestamp,
                         messageType: message.type,
-                        selectedUsers: messageData.selectedUsers
+                        selectedUsers,
                     };
                 })
             );
             return fetchedMessages;
         };
-    
+
         fetchUserData();
-    
-        // Component unmount olduğunda dinleyiciyi kaldır
+
+        // Remove listener when component unmounts
         return () => {
             userRef.off('value');
         };
     }, []);
+
     const renderMessageItem = ({ item }) => {
-        // Mevcut kullanıcı id'si
         const currentUserId = firebase.auth().currentUser.uid;
-    
-        // Vibrasyon mesajı için gösterilecek metin
         let vibrationMessage = '';
-    
-        // Vibrasyon ve konuşma türü kontrolü
+
         if (item.type === 'vibration') {
             if (item.messageType === 'conversation') {
-                if (item.senderId === currentUserId) {
-                    vibrationMessage = `You vibrated ${item.chatName}`;
-                } else {
-                    vibrationMessage = `${item.senderName} vibrated you`;
-                }
+                vibrationMessage = item.senderId === currentUserId
+                    ? `You vibrated ${item.chatName}`
+                    : `${item.senderName} vibrated you`;
             } else if (item.messageType === 'group') {
-                // Group türü için
-                if (item.senderId === currentUserId) {
-                    // Kullanıcı kendisi titrettiğinde
-                    const selectedUserNames = item.selectedUsers
-                        .map(user => user.userId === currentUserId ? 'you' : user.userName) // Kendi userId'sini kontrol et ve "you" yap
-                        .join(', ');
-                    vibrationMessage = `You vibrated ${selectedUserNames}`;
-                } else {
-                    // Başkası kullanıcıyı titrettiğinde
-                    const selectedUserNames = item.selectedUsers
-                        .map(user => user.userId === currentUserId ? 'you' : user.userName) // Kendi userId'sini kontrol et ve "you" yap
-                        .join(', ');
-                    vibrationMessage = `${item.senderName} vibrated ${selectedUserNames}`;
-                }
+                const selectedUserNames = item.selectedUsers
+                    .map(user => user.userId === currentUserId ? 'you' : user.userName)
+                    .join(', ');
+                vibrationMessage = item.senderId === currentUserId
+                    ? `You vibrated ${selectedUserNames}`
+                    : `${item.senderName} vibrated ${selectedUserNames}`;
             }
         }
-    
+
         return (
-            <TouchableOpacity  onPress={() => {
-                if(item.messageType=="group"){
-                    navigation.navigate('Chat', { groupId: item.id, name: item.chatName })
-                }else if(item.messageType=="conversation"){
-                    navigation.navigate('Chat', { conversationId:item.id, name: item.senderName });
+            <TouchableOpacity onPress={() => {
+                if (item.messageType === "group") {
+                    navigation.navigate('Chat', { groupId: item.id, name: item.chatName });
+                } else if (item.messageType === "conversation") {
+                    navigation.navigate('Chat', { conversationId: item.id, name: item.senderName });
                 }
             }}>
                 <View style={styles.item}>
-                <Image style={styles.profileImage} source={{ uri: item.senderProfileImage }} />
-                <View>
-                    <Text style={styles.title}>{item.senderName === item.chatName ? item.senderName : `${item.senderName} · ${item.chatName}`}</Text>
-                    {item.type === "image" ? (
-                        <TouchableOpacity onPress={() => handleImagePress(item.text)}>
-                            <Image style={{ width: 100, height: 100 }} source={{ uri: item.text }} />
-                        </TouchableOpacity>
-                    ) : item.type === 'vibration' ? (
-                        <Text style={styles.bio}>{vibrationMessage}</Text>
-                    ) : (
-                        <Text style={styles.bio}>{item.text}</Text>
-                    )}
-                    <Text style={styles.bio}>
-                        {moment(item.timestamp).format('DD MMMM YYYY · HH:mm')}
-                    </Text>
+                    <Image style={styles.profileImage} source={{ uri: item.senderProfileImage }} />
+                    <View>
+                        <Text style={styles.title}>{item.senderName === item.chatName ? item.senderName : `${item.senderName} · ${item.chatName}`}</Text>
+                        {item.type === "image" ? (
+                            <TouchableOpacity onPress={() => handleImagePress(item.text)}>
+                                <Image style={{ width: 100, height: 100 }} source={{ uri: item.text }} />
+                            </TouchableOpacity>
+                        ) : item.type === 'vibration' ? (
+                            <Text style={styles.bio}>{vibrationMessage}</Text>
+                        ) : (
+                            <Text style={styles.bio}>{item.text}</Text>
+                        )}
+                        <Text style={styles.bio}>
+                            {moment(item.timestamp).format('DD MMMM YYYY · HH:mm')}
+                        </Text>
+                    </View>
+                    <View style={{flex:1}}></View>
+                    <Icon name="arrow-right" size={20} color="black" />
                 </View>
-            </View>
             </TouchableOpacity>
-            
         );
     };
-    
 
     if (loading) {
         return (
@@ -219,24 +222,38 @@ const SavedMessages = () => {
                 </View>
             </View>
             <View style={styles.container}>
-                <Text style={{fontSize:25,fontWeight:'bold',color:'#4B4B4B',paddingBottom:20}}>Your Saved Messages</Text>
-                <FlatList
-                    data={savedMessages}
-                    renderItem={renderMessageItem}
-                    keyExtractor={(item, index) => index.toString()}
-                />
-                <Modal visible={modalVisible} transparent={true} onRequestClose={closeModal}>
-                    <View style={styles.modalBackground}>
-                        <TouchableOpacity style={styles.modalContainer} onPress={closeModal}>
-                            <Image
-                                source={{ uri: selectedImage }}
-                                style={styles.fullscreenImage}
-                                resizeMode="contain"
-                            />
-                        </TouchableOpacity>
-                    </View>
-                </Modal>
+                <Text style={{fontSize:25,fontWeight:'bold',color:'#4B4B4B',marginTop:10,marginBottom:10}}>Saved Messages</Text>
+                {savedMessages.length !== 0 ? (
+    <FlatList
+        data={savedMessages}
+        renderItem={renderMessageItem}
+        keyExtractor={(item) => item.timestamp.toString()}
+    />
+) : (
+    <View style={{flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#fff',}}>
+    <Image
+      source={require('../../../assets/images/logo_yazisiz.png')}
+      style={{width: 300,  // Logo genişliği
+        height: 300, // Logo yüksekliği
+        opacity:0.4
+        }}
+        resizeMode="contain"
+    />
+    <Text style={styles.placeholderText}>No messages found!</Text>
+  </View>
+)}
             </View>
+            <Modal visible={modalVisible} transparent={true}>
+                <View style={styles.modalContainer}>
+                    <TouchableOpacity style={styles.modalBackground} onPress={closeModal} />
+                    <View style={styles.modalContent}>
+                        <Image source={{ uri: selectedImage }} style={{ width: '100%', height: '100%' }} />
+                    </View>
+                </View>
+            </Modal>
         </LinearGradient>
     );
 };
