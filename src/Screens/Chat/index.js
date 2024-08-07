@@ -396,8 +396,8 @@ cancelDisconnect = (roomId) => {
 <TouchableOpacity onPress={() => {
     if (conversationId) {
         this.props.navigation.navigate("UserDetails", { userId: otherUserId });
-    } else {
-        // Optionally, handle the case when conversationId is not present
+    } else if(groupId){
+        this.props.navigation.navigate("GroupDetails", { groupId: groupId });
         console.log('Conversation ID is not present');
     }
 }}>

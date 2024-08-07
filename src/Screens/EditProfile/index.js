@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator, Modal, TouchableWithoutFeedback ,TextInput,Alert} from 'react-native';
 import firebase from '@react-native-firebase/app';
 import database from '@react-native-firebase/database';
+import * as ImagePicker from 'react-native-image-picker';
+import ImageCropPicker from 'react-native-image-crop-picker';
 import { format } from 'date-fns';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
@@ -30,7 +32,7 @@ const EditProfile = () => {
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [passwordError, setPasswordError] = useState('');
-
+    const [transferred, setTransferred] = useState(0);
 
     useEffect(() => {
         const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`);
@@ -133,9 +135,9 @@ const EditProfile = () => {
         setEditModalVisible(false);
         setUploading(true);
         setTransferred(0);
-    
+        
         // Delete the old profile picture if it exists
-        if (user && user.picture) {
+        if (user && user.picture && user.picture.includes(user.id)) {
             const oldPictureRef = storage().refFromURL(user.picture);
             try {
                 await oldPictureRef.delete();

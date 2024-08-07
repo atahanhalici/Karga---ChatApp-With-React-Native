@@ -126,7 +126,7 @@ const Profile = () => {
         setTransferred(0);
     
         // Delete the old profile picture if it exists
-        if (user && user.picture) {
+        if (user && user.picture && user.picture.includes(user.id)) {
             const oldPictureRef = storage().refFromURL(user.picture);
             try {
                 await oldPictureRef.delete();

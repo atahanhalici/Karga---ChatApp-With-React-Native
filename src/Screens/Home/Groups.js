@@ -221,13 +221,17 @@ const Groups = ({filterText}) => {
             messages: {},
             picture:"https://cdn-icons-png.flaticon.com/512/5097/5097475.png",
             name:groupName.trim(),
+            createTime:firebase.database.ServerValue.TIMESTAMP,
+            description:"Karga Bir Harika!",
+            directors:[userId],
             userStatus: {
                 [userId]: {
                     inChat: true,
                     lastLeft: null,
                     write:false
                 },
-            }
+            },
+            author:userId,
         });
       const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}/groups`);
 
