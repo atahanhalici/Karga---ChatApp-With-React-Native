@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator, Modal, TouchableWithoutFeedback,Alert } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator, Modal, TouchableWithoutFeedback,Alert,Button } from 'react-native';
 import firebase from '@react-native-firebase/app';
 import database from '@react-native-firebase/database';
 import * as ImagePicker from 'react-native-image-picker';
@@ -496,8 +496,103 @@ const isMember = group.members && group.members.includes(userId);
         return null;
     };
     const handleLeaveGroup = () => {
-       console.log(group.userStatus);
-       
+        const isOwner = group.author === userId;
+        const isDirector = group.directors && group.directors.includes(userId);
+        const isMember = group.members && group.members.includes(userId);
+    
+        const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}`);
+        const userStatusRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}/userStatus/${userId}`);
+        const userGroupsRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}/groups/${groupId}`);
+        setMemberModalVisible(false);
+    
+        const removeFromArray = (ref, userId) => {
+            return ref.once('value')
+                .then(snapshot => {
+                    const array = snapshot.val();
+                    if (array && Array.isArray(array)) {
+                        const index = array.indexOf(userId);
+                        if (index > -1) {
+                            array.splice(index, 1);
+                            return ref.set(array);
+                        }
+                    }
+                    return Promise.resolve();
+                });
+        };
+    
+        const tasks = [];
+    
+        if (isOwner) {
+            const directors = group.directors || [];
+            const members = group.members || [];
+            
+            if (directors.length === 1) {
+                // Only one director (which is the owner), make a random member both owner and director
+                const remainingMembers = members.filter(member => member !== userId);
+                if (remainingMembers.length > 0) {
+                    const newOwnerId = remainingMembers[Math.floor(Math.random() * remainingMembers.length)];
+                    tasks.push(
+                        groupRef.child('author').set(newOwnerId)
+                            .then(() => console.log(`User ${newOwnerId} set as new owner.`))
+                            .catch(error => console.error(`Error setting new owner:`, error))
+                    );
+                    tasks.push(
+                        groupRef.child('directors').set([newOwnerId])
+                            .then(() => console.log(`User ${newOwnerId} set as new director.`))
+                            .catch(error => console.error(`Error setting new director:`, error))
+                    );
+                }
+            } else if (directors.length === 2) {
+                // Two directors, make the other director the owner
+                const otherDirector = directors.find(director => director !== userId);
+                tasks.push(
+                    groupRef.child('author').set(otherDirector)
+                        .then(() => console.log(`User ${otherDirector} set as new owner.`))
+                        .catch(error => console.error(`Error setting new owner:`, error))
+                );
+            } else if (directors.length > 2) {
+                // More than two directors, choose one randomly as the new owner
+                const remainingDirectors = directors.filter(director => director !== userId);
+                const newOwnerId = remainingDirectors[Math.floor(Math.random() * remainingDirectors.length)];
+                tasks.push(
+                    groupRef.child('author').set(newOwnerId)
+                        .then(() => console.log(`User ${newOwnerId} set as new owner.`))
+                        .catch(error => console.error(`Error setting new owner:`, error))
+                );
+            }
+        }
+    
+        if (isDirector) {
+            tasks.push(
+                removeFromArray(groupRef.child('directors'), userId)
+                    .then(() => console.log(`User ${userId} removed from directors.`))
+                    .catch(error => console.error(`Error removing user ${userId} from directors:`, error))
+            );
+        }
+    
+        if (isMember || isOwner) {
+            tasks.push(
+                removeFromArray(groupRef.child('members'), userId)
+                    .then(() => console.log(`User ${userId} removed from members.`))
+                    .catch(error => console.error(`Error removing user ${userId} from members:`, error))
+            );
+        }
+    
+        tasks.push(
+            userStatusRef.remove()
+                .then(() => console.log(`User status for ${userId} removed.`))
+                .catch((error) => console.error(`Error removing user status for ${userId}:`, error))
+        );
+    
+        tasks.push(
+            userGroupsRef.remove()
+                .then(() => console.log(`User ${userId} removed from group ${groupId} in user data.`))
+                .catch((error) => console.error(`Error removing user from group ${groupId} in user data:`, error))
+        );
+    
+        Promise.all(tasks).then(() => {
+            console.log(`All tasks for removing user ${userId} completed.`);
+        });
     };
     
     const handleRemoveFromGroup = (userId) => {
@@ -507,7 +602,10 @@ const isMember = group.members && group.members.includes(userId);
         const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}`);
         const userStatusRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}/userStatus/${userId}`);
         const userGroupsRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}/groups/${groupId}`);
-        setMemberModalVisible(false);
+        setIsModalVisible(false);
+        setMemberModalVisible(false); 
+    
+        navigation.popToTop();
     
         const removeFromArray = (ref, userId) => {
             return ref.once('value')
@@ -559,8 +657,13 @@ const isMember = group.members && group.members.includes(userId);
         );
     
         Promise.all(tasks).then(() => {
-            console.log(`All tasks for removing user ${userId} completed.`);    
+            console.log(`All tasks for removing user ${userId} completed.`);  
+
+        
+            
+          
         });
+
     };
     
     
@@ -1048,13 +1151,15 @@ setIsModalVisible(true);
     keyExtractor={(item) => item.userId}
     renderItem={(props) => renderItem({ ...props, group, userId, handleMemberPress, styles })}
   />
-      {members.length > itemsPerPage && (
-        <View style={styles.pagination}>
-          <Button title="Previous" onPress={handlePrevPage} disabled={currentPage === 1} />
+  {members.length > itemsPerPage && (
+    <View style={{marginVertical:10}}>
+    <View style={[styles.pagination,{flexDirection:'row',justifyContent:'space-around',alignItems:'center'}]}>
+          <Button title="Previous" onPress={handlePrevPage} disabled={currentPage === 1} color="#FF8400" style={{borderRadius: 10,}} />
           <Text>{`Page ${currentPage} of ${totalPages}`}</Text>
-          <Button title="Next" onPress={handleNextPage} disabled={currentPage === totalPages} />
+          <Button title="    Next    " onPress={handleNextPage} disabled={currentPage === totalPages} color="#FF8400" style={{borderRadius: 10,}} />
         </View>
-      )}
+    </View>
+    )}
       {myDirector&&(
  <TouchableOpacity style={styles.addMemberButton} onPress={handleAddMemberPress}>
  <Text style={styles.addMemberButtonText}>Add Member</Text>
