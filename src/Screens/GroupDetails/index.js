@@ -9,7 +9,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import storage from '@react-native-firebase/storage';
 import LinearGradient from 'react-native-linear-gradient';
-import { FlatList } from 'react-native-gesture-handler';
+import { FlatList, TextInput } from 'react-native-gesture-handler';
 const GroupDetails = () => {
     const route = useRoute();
     const navigation = useNavigation();
@@ -33,65 +33,143 @@ const GroupDetails = () => {
     const [memberModalVisible, setMemberModalVisible] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 5;
-    const [trigger, setTrigger] = useState(0);
+    const [myDirector, setMyDirector] = useState(false);
+    const [friendModalVisible, setFriendModalVisible] = useState(false);
+    const [groupNameVisible, setGroupNameVisible] = useState(false);
+    const [groupDescVisible, setGroupDescVisible] = useState(false);
+    const [friends, setFriends] = useState([]); // Store friends data
+    const [description, setDescription] = useState("");
+    const [groupName, setGroupName] = useState("");
 
-    useEffect(() => {
-        if (group && group.members) {
-            const memberRefs = group.members.map(memberId =>
-                firebase
-                    .app()
-                    .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
-                    .ref(`/users/${memberId}`)
-            );
-    
-            const onValueChange = (snapshot) => {
-                const userData = snapshot.val();
-                const userIds = snapshot.key;
-    
-                setMembers(prevMembers => {
-                    const updatedMembers = prevMembers.filter(member => member.userId !== userIds);
-                    if (userData) {
-                        updatedMembers.push({
-                            userId: userIds,
-                            userName: userData.userName,
-                            picture: userData.picture,
-                            online: userData.online,
-                            bio: userData.bio,
-                            conversations: userData.conversations,
-                        });
-                    }
-                    return updatedMembers;
+    const saveNewDescription = () => {
+        if (description !== group.description) {
+            firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .ref(`/groups/${groupId}`)
+                .update({ description })
+                .then(() => {
+                    // Handle successful update (e.g., show a confirmation message, close the modal, etc.)
+                    setGroupDescVisible(false);
+                })
+                .catch(error => {
+                    // Handle error (e.g., show an error message)
+                    console.error('Error updating description:', error);
                 });
-            };
-    
-            memberRefs.forEach(memberRef => {
-                memberRef.on('value', onValueChange);
-            });
-    
-            // Remove all listeners on cleanup
-            return () => {
-                memberRefs.forEach(memberRef => {
-                    memberRef.off('value', onValueChange);
-                });
-            };
+        } else {
+            // If description hasn't changed, just close the modal
+            setGroupDescVisible(false);
         }
-    }, [group, trigger]);
-    
+    };
+    const saveNewGroupName = () => {
+        if (groupName !== group.name) {
+            firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .ref(`/groups/${groupId}`)
+                .update({ name:groupName })
+                .then(() => {
+                    // Handle successful update (e.g., show a confirmation message, close the modal, etc.)
+                    setGroupNameVisible(false);
+                })
+                .catch(error => {
+                    // Handle error (e.g., show an error message)
+                    console.error('Error updating description:', error);
+                });
+        } else {
+            // If description hasn't changed, just close the modal
+            setGroupNameVisible(false);
+        }
+    };
     useEffect(() => {
         const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}`);
-        groupRef.on('value', snapshot => {
+    
+        const handleGroupData = snapshot => {
             const groupData = snapshot.val();
             if (groupData) {
                 setGroup(groupData);
-                setMembersCount(groupData.members ? Object.keys(groupData.members).length : 0);
+                setDescription(groupData.description || "");
+                setGroupName(groupData.name || "");
+                setMembersCount(groupData.members ? groupData.members.length : 0);
                 setMessagesCount(groupData.messages ? Object.keys(groupData.messages).length : 0);
+    
+                // Get all member IDs including author and directors
+                const authorId = groupData.author;
+                const directorIds = groupData.directors || [];
+                const memberIds = groupData.members || [];
+                
+                const allMemberIds = Array.from(new Set([authorId, ...directorIds, ...memberIds]));
+    
+                const memberRefs = allMemberIds.map(memberId =>
+                    firebase
+                        .app()
+                        .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                        .ref(`/users/${memberId}`)
+                );
+    
+                const onValueChange = snapshot => {
+                    const userData = snapshot.val();
+                    const userId = snapshot.key;
+    
+                    setMembers(prevMembers => {
+                        let updatedMembers = prevMembers.filter(member => member.userId !== userId);
+                        if (userData) {
+                            updatedMembers.push({
+                                userId,
+                                userName: userData.userName,
+                                picture: userData.picture,
+                                online: userData.online,
+                                bio: userData.bio,
+                                conversations: userData.conversations,
+                            });
+                        }
+    
+                        // Sort members: author first, then directors (online first), then members (online first)
+                        updatedMembers.sort((a, b) => {
+                            if (a.userId === authorId) return -1;
+                            if (b.userId === authorId) return 1;
+                            if (directorIds.includes(a.userId) && !directorIds.includes(b.userId)) return -1;
+                            if (!directorIds.includes(a.userId) && directorIds.includes(b.userId)) return 1;
+                            if (directorIds.includes(a.userId) && directorIds.includes(b.userId)) {
+                                return b.online - a.online; // Online directors first
+                            }
+                            if (!directorIds.includes(a.userId) && !directorIds.includes(b.userId)) {
+                                return b.online - a.online; // Online members first
+                            }
+                            return 0;
+                        });
+    
+                        return updatedMembers;
+                    });
+                };
+    
+                // Clear previous listeners
+                memberRefs.forEach(memberRef => {
+                    memberRef.off('value', onValueChange);
+                });
+    
+                // Set new listeners
+                setMembers([]);  // Reset members before adding new ones
+                memberRefs.forEach(memberRef => {
+                    memberRef.on('value', onValueChange);
+                });
+    
+                // Remove all listeners on cleanup
+                return () => {
+                    memberRefs.forEach(memberRef => {
+                        memberRef.off('value', onValueChange);
+                    });
+                };
             } else {
                 setGroup(null);
+                setDescription(""); // Reset description if no data
+                setGroupName("");
+                setMembers([]);
             }
-        });
-
-        return () => groupRef.off();
+        };
+    
+        groupRef.on('value', handleGroupData);
+    
+        return () => groupRef.off('value', handleGroupData);
     }, [groupId]);
+    
+    
 
     useEffect(() => {
         const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`);
@@ -100,7 +178,6 @@ const GroupDetails = () => {
             const userData = snapshot.val();
             if (userData) {
                 setUser(userData);
-                
             } else {
                 setUser(null);
             }
@@ -110,22 +187,19 @@ const GroupDetails = () => {
 
         return () => userRef.off('value', handleUserData);
     }, [userId]);
+
     useEffect(() => {
-        const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}`);
-        groupRef.on('value', snapshot => {
-            const groupData = snapshot.val();
-            if (groupData) {
-                setGroup(groupData);
-                setMembersCount(groupData.members ? groupData.members.length : 0);
-                setMessagesCount(groupData.messages ? Object.keys(groupData.messages).length : 0);
-            } else {
-                setGroup(null);
-            }
-        });
-
-        return () => groupRef.off();
-    }, [groupId]);
-
+        const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}/directors`);
+    
+        const handleDirectorsChange = snapshot => {
+            const directors = snapshot.val() || [];
+            setMyDirector(directors.includes(userId));
+        };
+    
+        groupRef.on('value', handleDirectorsChange);
+    
+        return () => groupRef.off('value', handleDirectorsChange);
+    }, [groupId, userId]);
 
     useEffect(() => {
       }, [members]);
@@ -354,7 +428,7 @@ const isMember = group.members && group.members.includes(userId);
                     >
                         <Text style={styles.buttonText}>Remove from Group</Text>
                     </TouchableOpacity>
-                    {selectedMember?.userId !== userId && (
+                    {selectedMember?.userId !== userId && !group.directors.includes(selectedMember?.userId) && (
                         <TouchableOpacity 
                             style={styles.button} 
                             onPress={() => handleMakeAdmin(selectedMember?.userId)}
@@ -381,33 +455,38 @@ const isMember = group.members && group.members.includes(userId);
                 </>
             );
         } else if (isAdmin) {
-            return (
-                <>
-                    <TouchableOpacity 
-                        style={styles.button} 
-                        onPress={() => handleRemoveFromGroup(selectedMember?.userId)}
-                    >
-                        <Text style={styles.buttonText}>Remove from Group</Text>
-                    </TouchableOpacity>
-                    {selectedMember?.userId !== userId && !group.directors.includes(selectedMember?.userId) && (
-    <TouchableOpacity 
-        style={styles.button} 
-        onPress={() => handleMakeAdmin(selectedMember?.userId)}
-    >
-        <Text style={styles.buttonText}>Make Admin</Text>
-    </TouchableOpacity>
-)}
-
-{selectedMember?.userId !== userId && group.directors.includes(selectedMember?.userId) && (
-    <TouchableOpacity 
-        style={styles.button} 
-        onPress={() => handleRemoveAdmin(selectedMember?.userId)}
-    >
-        <Text style={styles.buttonText}>Remove Admin</Text>
-    </TouchableOpacity>
-)}
-                </>
-            );
+            if (selectedMember?.userId !== group.author) {
+                return (
+                    <>
+                        <TouchableOpacity 
+                            style={styles.button} 
+                            onPress={() => handleRemoveFromGroup(selectedMember?.userId)}
+                        >
+                            <Text style={styles.buttonText}>Remove from Group</Text>
+                        </TouchableOpacity>
+                        {selectedMember?.userId !== userId && !group.directors.includes(selectedMember?.userId) && (
+        <TouchableOpacity 
+            style={styles.button} 
+            onPress={() => handleMakeAdmin(selectedMember?.userId)}
+        >
+            <Text style={styles.buttonText}>Make Admin</Text>
+        </TouchableOpacity>
+    )}
+    
+    {selectedMember?.userId !== userId && group.directors.includes(selectedMember?.userId) && (
+        <TouchableOpacity 
+            style={styles.button} 
+            onPress={() => handleRemoveAdmin(selectedMember?.userId)}
+        >
+            <Text style={styles.buttonText}>Remove Admin</Text>
+        </TouchableOpacity>
+    )}
+                    </>
+                );
+            }else{
+                null
+            }
+           
         } else if (isMember) {
             return (
                 null
@@ -480,10 +559,7 @@ const isMember = group.members && group.members.includes(userId);
         );
     
         Promise.all(tasks).then(() => {
-            console.log(`All tasks for removing user ${userId} completed.`);
-            setTrigger(prev => prev + 1);
-            setMembers(prevMembers => prevMembers.filter(member => member !== userId));  // Update members state
-            console.log(members);
+            console.log(`All tasks for removing user ${userId} completed.`);    
         });
     };
     
@@ -524,7 +600,7 @@ const isMember = group.members && group.members.includes(userId);
     
     const handleMakeAdmin = (userId) => {
         const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}/directors`);
-
+setMemberModalVisible(false);
         groupRef.once('value')
             .then((snapshot) => {
                 let directors = snapshot.val();
@@ -558,7 +634,7 @@ const isMember = group.members && group.members.includes(userId);
     
     const handleRemoveAdmin = (userId) => {
         const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}/directors`);
-
+        setMemberModalVisible(false);
         groupRef.once('value')
             .then((snapshot) => {
                 let directors = snapshot.val();
@@ -585,12 +661,114 @@ const isMember = group.members && group.members.includes(userId);
     };
 
     const handleLeaveAdminRole = () => {
-        // Logic to handle leaving the admin role
+        const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}/directors`);
+        setMemberModalVisible(false);
+        groupRef.once('value')
+            .then((snapshot) => {
+                let directors = snapshot.val();
+                if (directors && Array.isArray(directors)) {
+                    const index = directors.indexOf(userId);
+                    if (index !== -1) {
+                        directors.splice(index, 1); // Remove the userId from the array
+                        return groupRef.set(directors);
+                    } else {
+                        console.log(`User ${userId} is not in directors.`);
+                        return;
+                    }
+                } else {
+                    console.log('Directors list is empty or not an array.');
+                    return;
+                }
+            })
+            .then(() => {
+                console.log(`User ${userId} removed from directors.`);
+            })
+            .catch((error) => {
+                console.error(`Error removing user ${userId} from directors:`, error);
+            });
     };
-    const handleTransferOwnership = (userId) => {
-        // Logic to handle transferring ownership to another user
+    const handleTransferOwnership = (id) => {
+        const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}`);
+        const directorsRef = groupRef.child('directors');
+        const authorRef = groupRef.child('author');
+        setMemberModalVisible(false);
+        // Remove current userId from author and set new author
+        authorRef.once('value')
+            .then((snapshot) => {
+                const currentAuthor = snapshot.val();
+                if (currentAuthor === userId) {
+                    return authorRef.set(id);
+                } else {
+                    console.log(`Current author is not ${userId}.`);
+                    return Promise.reject(`Current author is not ${userId}.`);
+                }
+            })
+            .then(() => {
+                console.log(`Ownership transferred to user ${id}.`);
+    
+                // Check and update directors list
+                return directorsRef.once('value');
+            })
+            .then((snapshot) => {
+                let directors = snapshot.val();
+                if (directors) {
+                    if (Array.isArray(directors)) {
+                        if (!directors.includes(id)) {
+                            directors.push(id);
+                        } else {
+                            console.log(`User ${id} is already a director.`);
+                            return;
+                        }
+                    } else {
+                        directors = [id];
+                    }
+                } else {
+                    directors = [id];
+                }
+    
+                return directorsRef.set(directors);
+            })
+            .then(() => {
+                console.log(`User ${id} added to directors.`);
+            })
+            .catch((error) => {
+                console.error(`Error transferring ownership or updating directors:`, error);
+            });
     };
+    const handleAddToGroup=async(id)=>{
+        const otherUserRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${id}/notifications`);
+        await otherUserRef.push().set({
+            notificationType: "group",
+            id: groupId,
+            senderName: firebase.auth().currentUser.displayName,
+            name: group.name,
+            senderId:userId
+        });
 
+        const otherUserSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${id}`).once('value');
+        const otherUserData = otherUserSnapshot.val();
+       const token = otherUserData.fcmToken;
+       // fetch('http://192.168.0.23:3000/send-notification', {
+          //  fetch('http://192.168.50.47:3000/send-notification', {
+            fetch('http://172.20.10.2:3000/send-notification', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                token: token,
+                title: `Grup Daveti`,
+                body: `${firebase.auth().currentUser.displayName} sizi ${group.name} adlı gruba davet etti`
+            })
+        }).then(response => response.json())
+            .then(data => {
+
+            }).catch(error => {
+
+            });
+setFriendModalVisible(false);
+setIsModalVisible(true);
+    }
     const renderItem = ({ item, group, handleMemberPress, styles }) => {
         const isOwner = group.author === item.userId;
         const isAdmin = group.directors && group.directors.includes(item.userId);
@@ -616,6 +794,93 @@ const isMember = group.members && group.members.includes(userId);
           </TouchableOpacity>
         );
       };
+
+      const handleAddMemberPress = async () => {
+        try {
+            // Fetch the friend IDs
+            const friendsRef = firebase
+                .app()
+                .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .ref(`/users/${userId}/friends`);
+    
+            const snapshot = await friendsRef.once('value');
+            const friendIds = snapshot.val();
+    
+            // Prepare an array to store friend details
+            const friendsData = [];
+    
+            // Fetch details for each friend ID
+            for (const friendId of friendIds) {
+                const friendRef = firebase
+                    .app()
+                    .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                    .ref(`/users/${friendId}`);
+    
+                const friendSnapshot = await friendRef.once('value');
+                const friendData = friendSnapshot.val();
+    
+                if (friendData) {
+                    friendsData.push({
+                        userId: friendId,
+                        userName: friendData.userName,
+                        bio: friendData.bio,
+                        picture: friendData.picture,
+                    });
+                }
+            }
+    
+            // Update the state with the fetched friends data
+            setFriends(friendsData);
+            setFriendModalVisible(true);
+    
+        } catch (error) {
+            console.error('Error fetching friends data: ', error);
+        }
+    };
+    const renderFriendItem = ({ item }) => {
+        const isMember = group.members.includes(item.userId);
+        setMemberModalVisible
+        return (
+            <TouchableOpacity
+                style={[styles.item,{width:Dimensions.get('window').width*0.8-40}]}
+                onPress={() => {
+                    setFriendModalVisible(false);
+                    setIsModalVisible(false);
+                    navigation.navigate("UserDetails", { userId: item.userId })
+
+                }}
+            >
+                <Image source={{ uri: item.picture }} style={{width: 35,
+     height: 35,
+     borderRadius: 25,
+     marginRight: 15,}} />
+                <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={{fontSize: 17,
+     fontWeight: '700',
+     color: 'black'}} numberOfLines={1}
+                        ellipsizeMode="tail">{item.userName}</Text>
+                    <Text
+                        style={{fontSize: 12,
+                            color: 'black'}}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                    >
+                        {item.bio}
+                    </Text>
+                </View>
+                <TouchableOpacity
+                    style={[styles.actionButton, { borderColor: '#FF8400', borderWidth: 1, borderRadius: 60, padding: 10 }]}
+                    onPress={() => isMember ? handleRemoveFromGroup(item.userId) : handleAddToGroup(item.userId)}
+                >
+                    <Text style={{ color: '#FF8400', fontWeight: 'bold',fontSize:10 }}>
+                        {isMember ? 'Remove from group' : 'Add to group'}
+                    </Text>
+                </TouchableOpacity>
+                
+            </TouchableOpacity>
+        );
+    };
+    
     return (
         <LinearGradient
             style={styles.background}
@@ -646,16 +911,51 @@ const isMember = group.members && group.members.includes(userId);
                         <View style={styles.profileContainer}>
                             <TouchableOpacity onPress={handleImagePress}>
                                 <Image source={{ uri: group.picture }} style={styles.profilePicture} />
-                                { group.directors && group.directors.includes(userId) && (
+                                { group.author && group.author===userId && (
                 <TouchableOpacity style={styles.editButton} onPress={handleEditPress}>
                     <Icon name="pencil-alt" size={20} color="#fff" />
                 </TouchableOpacity>
             )}
                             </TouchableOpacity>
                             
-                        </View>
-                        <Text style={styles.username}>{group.name}</Text>
-                        <Text style={styles.bio}>{group.description}</Text>
+                            </View>
+<View style={{flexDirection: 'row', alignItems: 'center'}}>
+    <View style={{flex: 1}}/>
+    {group.author && group.author === userId && (
+        <View style={{backgroundColor: '#000', borderRadius: 20, padding: 5,opacity:0}}>
+            <Icon name="pencil-alt" size={12} color="#fff" />
+        </View>
+    )}
+    <View style={{width: 10}}/>
+    <Text style={styles.username}>{group.name}</Text>
+    <View style={{width: 10}}/>
+    
+    {group.author && group.author === userId && (
+        <TouchableOpacity style={{backgroundColor: '#000', borderRadius: 20, padding: 5}} onPress={()=>{setGroupNameVisible(true)}}>
+            <Icon name="pencil-alt" size={12} color="#fff" />
+        </TouchableOpacity>
+    )}
+    <View style={{flex: 1}}/>
+</View>
+
+<View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20}}>
+    {group.author && group.author === userId && (
+        <View style={{backgroundColor: '#000', borderRadius: 20, padding: 5,opacity:0}}>
+            <Icon name="pencil-alt" size={12} color="#fff" />
+        </View>
+    )}
+    <View style={{width: 10}}/>
+    <Text style={styles.bio}>{group.description}</Text>
+    <View style={{width: 10}}/>
+    {group.author && group.author === userId && (
+        <TouchableOpacity style={{backgroundColor: '#000', borderRadius: 20, padding: 5}} onPress={()=>{setGroupDescVisible(true)}}>
+            <Icon name="pencil-alt" size={12} color="#fff" />
+        </TouchableOpacity>
+    )}
+</View>
+
+
+                        
                         <Text style={styles.joinDate}>Created Date: {formatDate(group.createTime)}</Text>
                         <View style={styles.statsContainer}>
                             <View style={styles.statItem}>
@@ -755,6 +1055,12 @@ const isMember = group.members && group.members.includes(userId);
           <Button title="Next" onPress={handleNextPage} disabled={currentPage === totalPages} />
         </View>
       )}
+      {myDirector&&(
+ <TouchableOpacity style={styles.addMemberButton} onPress={handleAddMemberPress}>
+ <Text style={styles.addMemberButtonText}>Add Member</Text>
+</TouchableOpacity>
+      )}
+    
                 <Modal
     visible={memberModalVisible}
     transparent={true}
@@ -827,7 +1133,41 @@ const isMember = group.members && group.members.includes(userId);
         </View>
     </TouchableWithoutFeedback>
 </Modal>
+<Modal
+                                    visible={friendModalVisible}
+                                    transparent={true}
+                                    animationType="fade"
+                                    onRequestClose={() => setFriendModalVisible(false)}
+                                >
+                                    <TouchableWithoutFeedback onPress={() => setFriendModalVisible(false)}>
+    
+        <View style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        }}>
+            <TouchableWithoutFeedback>
+                <View style={{
+                    backgroundColor: 'white',
+                    padding: 20,
+                    borderRadius: 15,
+                    alignItems: 'center',
+                    width: '80%', // Adjust this value as needed
+                    maxHeight:'60'
+                }}>
+                                                                    <Text style={[styles.modalTitle, { fontSize: 20, marginTop: 10,marginBottom:15 }]}>Friends</Text>
+                                                <FlatList
+                                                    data={friends}
+                                                    keyExtractor={(item) => item.userId}
+                                                    renderItem={renderFriendItem}
+                                                />
 
+                </View>
+            </TouchableWithoutFeedback>
+        </View>
+    </TouchableWithoutFeedback>
+</Modal>
 
                 </View>
             </TouchableWithoutFeedback>
@@ -843,6 +1183,81 @@ const isMember = group.members && group.members.includes(userId);
                     </View>
                 </Modal>
             )}
+            <Modal
+                                    visible={groupNameVisible}
+                                    transparent={true}
+                                    animationType="fade"
+                                    onRequestClose={() => setGroupNameVisible(false)}
+                                >
+                                    <TouchableWithoutFeedback onPress={() => setGroupNameVisible(false)}>
+    
+        <View style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        }}>
+            <TouchableWithoutFeedback>
+                <View style={{
+                    backgroundColor: 'white',
+                    padding: 20,
+                    borderRadius: 15,
+                    alignItems: 'center',
+                    width: '80%', // Adjust this value as needed
+                    maxHeight:'60%'
+                }}>
+                                                                    <Text style={[styles.modalTitle, { fontSize: 20, marginTop: 10,marginBottom:15 }]}>Change Group Name</Text>
+                                                                    <TextInput
+                                style={{ borderRadius: 20, borderColor: '#FF8400', borderWidth: 1, width: '100%', color: '#FF8400', marginVertical: 15 }}
+                                value={groupName}
+                                onChangeText={setGroupName}
+                            />
+                                                                    <TouchableOpacity style={styles.addMemberButton} onPress={saveNewGroupName}>
+ <Text style={styles.addMemberButtonText}>Save New Group Name</Text>
+</TouchableOpacity>
+
+                </View>
+            </TouchableWithoutFeedback>
+        </View>
+    </TouchableWithoutFeedback>
+</Modal>
+<Modal
+            visible={groupDescVisible}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setGroupDescVisible(false)}
+        >
+            <TouchableWithoutFeedback onPress={() => setGroupDescVisible(false)}>
+                <View style={{
+                    flex: 1,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                }}>
+                    <TouchableWithoutFeedback>
+                        <View style={{
+                            backgroundColor: 'white',
+                            padding: 20,
+                            borderRadius: 15,
+                            alignItems: 'center',
+                            width: '80%',
+                            maxHeight: '60%'
+                        }}>
+                            <Text style={[styles.modalTitle, { fontSize: 20, marginTop: 10, marginBottom:15 }]}>Change Group Description</Text>
+                            <TextInput
+                                style={{ borderRadius: 20, borderColor: '#FF8400', borderWidth: 1, width: '100%', color: '#FF8400', marginVertical: 15 }}
+                                value={description}
+                                onChangeText={setDescription}
+                            />
+                            <TouchableOpacity style={styles.addMemberButton} onPress={saveNewDescription}>
+                                <Text style={styles.addMemberButtonText}>Save New Group Description</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </TouchableWithoutFeedback>
+                </View>
+            </TouchableWithoutFeedback>
+        </Modal>
+
         </LinearGradient>
     );
     
@@ -852,6 +1267,22 @@ const { width, height } = Dimensions.get('window');
 const modalSize = Math.min(width, height) * 0.8;
 
 const styles = StyleSheet.create({
+    addMemberButton: {
+        borderWidth: 1,
+        backgroundColor: '#ff8400',
+        borderColor:'#FF8400',
+        borderRadius: 20,
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+     marginTop:10
+    },
+    addMemberButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
     titles: {
         fontSize: 20,
         fontWeight: '700',
@@ -975,7 +1406,6 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#666',
         textAlign: 'center',
-        marginBottom: 20,
     },
     joinDate: {
         fontSize: 14,
