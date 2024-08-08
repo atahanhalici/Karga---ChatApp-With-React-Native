@@ -13,6 +13,7 @@ import EditProfile from "./Screens/EditProfile/index";
 import Friends from "./Screens/Friends";
 import SavedMessages from "./Screens/SavedMessages";
 import GroupDetails from "./Screens/GroupDetails";
+import NotificationSettings from "./Screens/NotificationSettings";
 
 const Stack=createStackNavigator();
 
@@ -33,6 +34,7 @@ render(){
     <Stack.Screen name="Friends" component={Friends}options={{ headerShown: false }}></Stack.Screen>
     <Stack.Screen name="SavedMessages" component={SavedMessages}options={{ headerShown: false }}></Stack.Screen>
     <Stack.Screen name="GroupDetails" component={GroupDetails}options={{ headerShown: false }}></Stack.Screen>
+    <Stack.Screen name="NotificationSettings" component={NotificationSettings}options={{ headerShown: false }}></Stack.Screen>
   </Stack.Navigator>
 </NavigationContainer>
 }

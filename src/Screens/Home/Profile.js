@@ -30,6 +30,27 @@ const Profile = () => {
                     navigation.navigate("Friends")
                 }else if(title==="Saved Messages"){
                     navigation.navigate("SavedMessages")
+                }else if(title==="Notification Settings"){
+                    navigation.navigate("NotificationSettings")
+                }else if(title==="Logout"){
+                    Alert.alert(
+                        "Warning",
+                        "You will be logged out. Are you sure you want to log out?",
+                        [
+                            {
+                                text: "No",
+                                onPress: () => console.log("No Pressed"), // İptal tuşuna basıldı
+                                style: "cancel"
+                            },
+                            {
+                                text: "Yes",
+                                onPress: () => {
+                                    logout();
+                                }
+                            }
+                        ],
+                        { cancelable: false }
+                    );
                 }
             }} style={styles.option}>
                 <View style={styles.optionLeft}>
@@ -41,6 +62,28 @@ const Profile = () => {
                 <Icon name="keyboard-arrow-right" size={24} color="#666" />
             </TouchableOpacity>
         );
+    };
+
+    logout = async () => {
+        try {
+            // Firebase Realtime Database referansını alın
+            const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .ref(`/users/${userId}`);
+    
+            // fcmToken değerini sil
+            await userRef.update({ fcmToken: null });
+    
+            // Firebase Authentication'dan çıkış yap
+            await firebase.auth().signOut();
+    
+            // Tüm sayfaları kapat ve login sayfasına yönlendir
+            navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+            });
+        } catch (error) {
+            console.error('Çıkış işlemi sırasında hata oluştu:', error);
+        }
     };
     useEffect(() => {
         const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`);
