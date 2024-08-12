@@ -12,6 +12,7 @@ const UserDetails = () => {
     const route = useRoute();
     const navigation = useNavigation();
     const [user, setUser] = useState(null);
+    const [myUser, setMyUser] = useState(null);
     const [friendsCount, setFriendsCount] = useState(0);
     const [conversationsCount, setConversationsCount] = useState(0);
     const [groupsCount, setGroupsCount] = useState(0);
@@ -24,7 +25,9 @@ const UserDetails = () => {
     const [expanded, setExpanded] = useState(false);
     const [visibleMediaCount, setVisibleMediaCount] = useState(10);
     const [showMedias, setShowMedias] = useState(false);
-
+    const [muteModalVisible, setMuteModalVisible] = useState(false);
+    const [selectedInviteDuration, handleInviteDurationPress] = useState(null);
+    const [selectedMessageDuration, handleMessageDurationPress] = useState(null);
     useEffect(() => {
         const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`);
         userRef.on('value', snapshot => {
@@ -40,6 +43,7 @@ const UserDetails = () => {
 
                 myUserRef.on('value', mySnapshot => {
                     const myData = mySnapshot.val();
+                    setMyUser(myData)
 
                     
                     if (myData) {
@@ -344,14 +348,25 @@ const UserDetails = () => {
             await friendRequestsRef.update({ friendRequests: updatedFriendRequests });
         });
     
-            // Get the other user's token
-            const snapshot = await firebase
-                .app()
-                .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
-                .ref(`/users/${userId}`)
-                .once('value');
+        const snapshot = await firebase
+        .app()
+        .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+        .ref(`/users/${friendId}`)
+        .once('value');
     
-            const token = snapshot.val().fcmToken;
+    const userData = snapshot.val();
+    let token = null;
+    
+    if (userData) {
+        const isMuteAllNotifications = userData.muteAllNotifications?.mute;
+        const isMuteFriendInvitations = userData.muteFriendInvitations?.mute;
+        const isInvitationMuted = userData.mutedInvitations?.[friendId]?.mute;
+    
+        // Eğer muteAllNotifications, muteFriendInvitations veya mutedInvitations içinde mute true değilse token'i alıyoruz
+        if (!isMuteAllNotifications && !isMuteFriendInvitations && !isInvitationMuted) {
+            token = userData.fcmToken;
+        }
+    }
             
     
             // Send notification to the other user
@@ -387,6 +402,200 @@ const UserDetails = () => {
         </TouchableOpacity>
     );
 
+    const handleMuteModal=()=>{
+        setMuteModalVisible(true);
+    }
+    const handleMutePress = async () => {
+        if (!selectedMessageDuration && !selectedInviteDuration) {
+          Alert.alert('Duration not selected', "Please select a duration for either messages or invitations.");
+          return;
+        }
+      
+        const userRef = firebase
+          .app()
+          .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+          .ref(`users/${myUserId}`);
+      
+        const updates = {};
+      
+        // Handle muting for messages
+        if (selectedMessageDuration) {
+          const messageRef = userRef.child('mutedConversations');
+      
+          if (selectedMessageDuration !== "All Mute") {
+            const serverTime = new Date().getTime();
+           // const onFinish = serverTime + selectedMessageDuration * 60 * 60 * 1000;
+            const onFinish = serverTime + 15 * 1000; // Convert hours to milliseconds
+            updates[conversationId] = {
+              onFinish: onFinish,
+              mute: true,
+              time: selectedMessageDuration,
+            };
+      
+            try {
+              await messageRef.update(updates);
+              await fetch('http://172.20.10.2:3000/set-conversation-mute', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  myUserId,
+                  conversationId,
+                  onFinish: onFinish,
+                }),
+              });
+            } catch (error) {
+              Alert.alert('Error', 'Failed to mute the conversation');
+            }
+          } else {
+            updates[conversationId] = {
+              mute: true,
+              onFinish: null,
+              time: null,
+            };
+            await messageRef.update(updates);
+          }
+        }
+      
+        if (selectedInviteDuration) {
+            const inviteRef = userRef.child(`mutedInvitations/${userId}`);
+          
+            if (selectedInviteDuration !== "All Mute") {
+              const serverTime = new Date().getTime();
+              const onFinish = serverTime + selectedInviteDuration * 60 * 60 * 1000;
+             // const onFinish = serverTime + 5 * 1000; // Convert hours to milliseconds
+              const inviteUpdate = {
+                onFinish: onFinish,
+                mute: true,
+                time: selectedInviteDuration,
+              };
+          
+              try {
+                await inviteRef.update(inviteUpdate);
+                await fetch('http://172.20.10.2:3000/set-invitation-mute', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    myUserId,
+                    userId,
+                    onFinish: onFinish,
+                  }),
+                });
+              } catch (error) {
+                Alert.alert('Error', 'Failed to mute the invitations from this friend');
+              }
+            } else {
+              const inviteUpdate = {
+                mute: true,
+                onFinish: null,
+                time: null,
+              };
+              await inviteRef.update(inviteUpdate);
+            }
+          }
+      
+        setMuteModalVisible(false);
+        handleMessageDurationPress(null);
+        handleInviteDurationPress(null);
+      };
+      
+      const handleUnmuteInvitations = async () => {
+        const userRef = firebase
+            .app()
+            .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+            .ref(`users/${myUserId}/mutedInvitations`);
+    
+        try {
+            const snapshot = await userRef.once('value');
+            const mutedInvitations = snapshot.val();
+            
+            if (mutedInvitations) {
+                for (const userId of Object.keys(mutedInvitations)) {
+                    const { mute, time } = mutedInvitations[userId];
+    
+                    if (mute === true && time === undefined) {
+                        const invitationRef = firebase
+                            .app()
+                            .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                            .ref(`users/${myUserId}/mutedInvitations/${userId}`);
+                        
+                        await invitationRef.update({
+                            mute: false,
+                            onFinish: null,
+                            time: null,
+                        });
+                    } else {
+                        await fetch('http://172.20.10.2:3000/cancel-invitation-mute', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                myUserId,
+                                userId,
+                            }),
+                        });
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching muted invitations:', error);
+        }
+    };
+
+    const handleUnmuteMessages = async () => {
+        const userRef = firebase
+            .app()
+            .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+            .ref(`users/${myUserId}/mutedConversations`);
+        console.log("sa");
+    
+        try {
+            const snapshot = await userRef.once('value');
+            const mutedConversations = snapshot.val();
+            
+            if (mutedConversations) {
+                for (const conversationId of Object.keys(mutedConversations)) {
+                    const { mute, time } = mutedConversations[conversationId];
+                    
+    
+                    if (mute === true && time === undefined) {
+                        console.log("Updating mute status for conversation:", conversationId);
+                        
+                        const conversationRef = firebase
+                            .app()
+                            .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                            .ref(`users/${myUserId}/mutedConversations/${conversationId}`);
+                        
+                        await conversationRef.update({
+                            mute: false,
+                            onFinish: null,
+                            time: null,
+                        });
+                    } else {
+                        console.log("Canceling mute for conversation:", conversationId);
+                        
+                        await fetch('http://172.20.10.2:3000/cancel-conversation-mute', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                myUserId,
+                                conversationId,
+                            }),
+                        });
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching muted conversations:', error);
+        }
+    };
+    
     return (
 
         <LinearGradient
@@ -444,10 +653,25 @@ const UserDetails = () => {
                 <View style={styles.buttonsContainer}>
                     {relationshipStatus === 'sent' && renderButton('Remove Request', handleRemoveRequest, 'times', '#FF8400')}
                     {relationshipStatus === 'friend' && (
+                        <View style={{alignItems:'center'}}>
                         <View style={styles.friendButtons}>
                             {renderButton('Remove Friend', handleRemoveFriend, 'user-minus', '#FF8400')}
                             {renderButton('Message', handleMessagePress, 'envelope', '#FF8400')}
                         </View>
+                        <View style={{height:10}}/>
+                        <View style={{flexDirection:'row',alignItems:'center'}}>
+                        <View style={styles.friendButtons}>
+                            <View style={{flex:1}}/>
+                            {myUser.mutedConversations[conversationId]?.mute === false || myUser.mutedInvitations[userId]?.mute === false? (
+    renderButton('Mute Friend', handleMuteModal, 'bell-slash', '#FF8400')
+  ) : (
+    renderButton('Unmute Friend', ()=>{}, 'bell', '#FF8400')
+  )}
+                       
+                        <View style={{flex:1}}/>
+                    </View>
+                        </View>
+                       </View>
                     )}
                     {relationshipStatus === 'received' && (
                         <View style={styles.friendButtons}>
@@ -484,6 +708,124 @@ const UserDetails = () => {
                 </TouchableWithoutFeedback>
             </Modal>
         </View>
+        <Modal
+  visible={muteModalVisible}
+  transparent={true}
+  animationType="fade"
+  onRequestClose={() => {
+    setMuteModalVisible(false);
+    handleMessageDurationPress(null);
+    handleInviteDurationPress(null);
+  }}
+>
+  <TouchableWithoutFeedback
+    onPress={() => {
+      setMuteModalVisible(false);
+      handleMessageDurationPress(null);
+      handleInviteDurationPress(null);
+    }}
+  >
+    <View style={styles.modalBackground}>
+      <TouchableWithoutFeedback>
+        <View style={styles.modalContent}>
+          {/* Mesajlar için seçenekler */}
+          {myUser && myUser.mutedConversations && myUser.mutedConversations[conversationId]?.mute === false && (
+    <View>
+        <Text style={styles.sectionTitle}>For Messages From This User:</Text>
+        <View style={styles.durationButtons}>
+            {[1, 5, 10, 24, "All Mute"].map((duration) => (
+                <TouchableOpacity
+                    key={`message-${duration}`}
+                    onPress={() => handleMessageDurationPress(duration)}
+                    style={[
+                        styles.durationButton,
+                        selectedMessageDuration === duration && styles.selectedDurationButton,
+                    ]}
+                >
+                    <Text
+                        style={[
+                            styles.durationButtonText,
+                            selectedMessageDuration === duration && styles.selectedDurationButtonText,
+                        ]}
+                    >
+                        {duration === "All Mute" ? duration : `${duration} Saat`}
+                    </Text>
+                </TouchableOpacity>
+            ))}
+        </View>
+    </View>
+)}
+          {myUser && myUser.mutedConversations && myUser.mutedConversations[conversationId]?.mute !== false &&(
+           <View>
+           <Text style={styles.sectionTitle}>For Messages From This User:</Text>
+           <TouchableOpacity onPress={handleUnmuteMessages}>
+               <View style={[styles.muteButton, { alignItems: 'center', justifyContent: 'center', flexDirection: 'column',marginBottom:10 }]}>
+                   <Text style={[styles.muteButtonText, { textAlign: 'center' }]}>
+                       Unmute for Messages
+                   </Text>
+               </View>
+           </TouchableOpacity>
+       </View>
+             
+          )}
+
+          {/* Davetler için seçenekler */}
+          {myUser && myUser.mutedInvitations && myUser.mutedInvitations[userId]?.mute === false && (
+            <View>
+<Text style={styles.sectionTitle}>For Invitations From This User:</Text>
+          <View style={styles.durationButtons}>
+            {[1, 5, 10, 24, "All Mute"].map((duration) => (
+              <TouchableOpacity
+                key={`invite-${duration}`}
+                onPress={() => handleInviteDurationPress(duration)}
+                style={[
+                  styles.durationButton,
+                  selectedInviteDuration === duration && styles.selectedDurationButton,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.durationButtonText,
+                    selectedInviteDuration === duration && styles.selectedDurationButtonText,
+                  ]}
+                >
+                  {duration === "All Mute" ? duration : `${duration} Saat`}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+            </View>
+          
+          )}
+
+{myUser && myUser.mutedInvitations && myUser.mutedInvitations[userId]?.mute !== false &&(
+         <View>
+         <Text style={styles.sectionTitle}>For Invitations From This User:</Text>
+         <TouchableOpacity onPress={handleUnmuteInvitations}>
+             <View style={[styles.muteButton, { alignItems: 'center', justifyContent: 'center', flexDirection: 'column',marginBottom:10 }]}>
+                 <Text style={[styles.muteButtonText, { textAlign: 'center' }]}>
+                     Unmute for Invitations
+                 </Text>
+             </View>
+         </TouchableOpacity>
+     </View>
+     
+             
+          )}
+          {/* Mute Butonu */}
+          {myUser && myUser.mutedInvitations && myUser.mutedConversations && 
+(myUser.mutedInvitations[userId]?.mute === false || myUser.mutedConversations[conversationId]?.mute === false) && (
+          <TouchableOpacity onPress={handleMutePress}>
+            <View style={styles.muteButton}>
+              <Text style={styles.muteButtonText}>Mute</Text>
+            </View>
+          </TouchableOpacity>
+          )}
+        </View>
+      </TouchableWithoutFeedback>
+    </View>
+  </TouchableWithoutFeedback>
+</Modal>
         </LinearGradient>
 
     );
@@ -491,6 +833,67 @@ const UserDetails = () => {
 const { width, height } = Dimensions.get('window');
 const modalSize = Math.min(width, height) * 0.8;
 const styles = StyleSheet.create({
+    sectionTitle:{
+marginBottom:10,fontWeight:'bold',textAlign:'center'
+    },
+    modalBackground: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    modalContent: {
+        backgroundColor: 'white',
+        padding: 20,
+        borderRadius: 15,
+        alignItems: 'center',
+        width: '80%',
+        maxHeight: '60%',
+    },
+    durationOptionsText: {
+        fontSize: 16,
+        color: '#4B4B4B',
+        marginBottom: 10,
+    },
+    durationButtons: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        marginBottom: 10,
+        marginTop: 5,
+        width: Dimensions.get('window').width - 100,
+    },
+    durationButton: {
+        padding: 10,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#FF8400',
+        backgroundColor: 'white',
+        marginHorizontal: 5,
+        marginVertical: 5,
+    },
+    selectedDurationButton: {
+        backgroundColor: '#FF8400',
+    },
+    durationButtonText: {
+        color: '#FF8400',
+        fontWeight: 'bold',
+    },
+    selectedDurationButtonText: {
+        color: 'white',
+    },
+    muteButton: {
+        backgroundColor: '#FF8400',
+        borderRadius: 20,
+        height: 30,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 5,
+        width: Dimensions.get('window').width - 150,
+    },
+    muteButtonText: {
+        color: 'white',
+    },
     background: {
         flex: 1,
     },

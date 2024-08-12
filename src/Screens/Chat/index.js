@@ -287,7 +287,7 @@ cancelDisconnect = (roomId) => {
                             activeOpacity={1}
                             onLongPress={() => {
                                 if (item.userId === userId) {
-                                    openModall(item.id);
+                                    this.openModall(item.id);
                                 }
                             }}
                             onPress={() => {
@@ -398,7 +398,6 @@ cancelDisconnect = (roomId) => {
         this.props.navigation.navigate("UserDetails", { userId: otherUserId });
     } else if(groupId){
         this.props.navigation.navigate("GroupDetails", { groupId: groupId });
-        console.log('Conversation ID is not present');
     }
 }}>
                         <View style={style.headerContainer}>
@@ -796,8 +795,13 @@ this.handleLeaveChat(conversationId);
                 if (otherUser) {
                     const otherUserSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${otherUser}`).once('value');
                     const otherUserData = otherUserSnapshot.val();
-                    if (otherUserData && otherUserData.fcmToken) {
+                    if (otherUserData) {
+                        const isMuteAllNotifications = otherUserData.muteAllNotifications?.mute;
+    const isMuteChatNotifications = otherUserData.muteChatNotifications?.mute;
+    const isConversationMuted = otherUserData.mutedConversations?.[conversationId]?.mute;
+                        if (!isMuteAllNotifications && !isMuteChatNotifications && !isConversationMuted && otherUserData.fcmToken) {
                         token = otherUserData.fcmToken;
+                        }
     
                         const userStatusSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/conversations/${conversationId}/userStatus/${otherUser}`).once('value');
                         const userStatus = userStatusSnapshot.val();
@@ -826,16 +830,15 @@ this.handleLeaveChat(conversationId);
         } else if (groupId) {
             newReference = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`groups/${groupId}/messages`).push();
             read = [];
-    
+        
             try {
                 const groupSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`groups/${groupId}/members`).once('value');
-                let tokens = [];
-
-
-
+                let tokens = new Set(); // Tekrar eden token'ları önlemek için Set kullanıyoruz
+        
                 const membersPromises = [];
                 groupSnapshot.forEach(childSnapshot => {
                     const memberId = childSnapshot.val();
+        
                     membersPromises.push(
                         firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`groups/${groupId}/userStatus/${memberId}`).once('value')
                             .then(memberStatusSnapshot => {
@@ -843,40 +846,43 @@ this.handleLeaveChat(conversationId);
                                 if (memberStatus && memberStatus.inChat) {
                                     read.push(memberId);
                                 } else {
-                                    return firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${memberId}`).once('value')
-                                        .then(memberSnapshot => {
-                                            const memberData = memberSnapshot.val();
-                                            if (memberData && memberData.fcmToken) {
-                                                tokens.push(memberData.fcmToken);
+                                    return firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                                    .ref(`users/${memberId}`)
+                                    .once('value')
+                                    .then(memberSnapshot => {
+                                        const memberData = memberSnapshot.val();
+                                        if (memberData && memberData.fcmToken) {
+                                            const isMuteAllNotifications = memberData.muteAllNotifications?.mute;
+                                            const isMuteGroupChatNotifications = memberData.muteGroupChatNotifications?.mute;
+                                            const isGroupMuted = memberData.mutedGroups?.[groupId]?.mute;
+        
+                                            if (!isMuteAllNotifications && !isMuteGroupChatNotifications && !isGroupMuted) {
+                                                tokens.add(memberData.fcmToken); // Tekrarlı token'lar set'e eklenmeyecek
                                             }
-                                        });
+                                        }
+                                    });
                                 }
                             })
                     );
                 });
-
-
-
-               /* if(messageType==="vibration"){
+        
+                if (messageType === "vibration") {
                     for (const friendId of selectedFriends) {
                         const friendSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${friendId}`).once('value');
                         const friendData = friendSnapshot.val();
                         if (friendData) {
-                            selectedUsers.push({ userId: friendId, userName: friendData.userName });
+                            selectedUsers.push(friendId); // Sadece friendId'yi ekliyoruz
                         }
                     }
-                }*/
-                    if (messageType === "vibration") {
-                        for (const friendId of selectedFriends) {
-                            const friendSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${friendId}`).once('value');
-                            const friendData = friendSnapshot.val();
-                            if (friendData) {
-                                selectedUsers.push(friendId); // Sadece friendId'yi ekliyoruz
-                            }
-                        }
-                    }
-    
+                }
+        
                 await Promise.all(membersPromises);
+        
+                // Burada set'ten array'e dönüştürüp bildirim gönderme işlemi yapabilirsiniz
+                const tokensArray = Array.from(tokens);
+                // Bildirim gönderme kodu buraya eklenecek
+    
+        
     if(messageType!=="vibration"){
         tokens.forEach(token => {
             if (messageType !== "vibration") {

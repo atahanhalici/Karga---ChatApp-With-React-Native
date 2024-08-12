@@ -170,14 +170,25 @@ const Friends = () => {
                 await friendRequestsRef.update({ friendRequests: updatedFriendRequests });
             });
         
-                // Get the other user's token
-                const snapshot = await firebase
-                    .app()
-                    .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
-                    .ref(`/users/${friendId}`)
-                    .once('value');
+            const snapshot = await firebase
+            .app()
+            .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+            .ref(`/users/${friendId}`)
+            .once('value');
         
-                const token = snapshot.val().fcmToken;
+        const userData = snapshot.val();
+        let token = null;
+        
+        if (userData) {
+            const isMuteAllNotifications = userData.muteAllNotifications?.mute;
+            const isMuteFriendInvitations = userData.muteFriendInvitations?.mute;
+            const isInvitationMuted = userData.mutedInvitations?.[userId]?.mute;
+        
+            // Eğer muteAllNotifications, muteFriendInvitations veya mutedInvitations içinde mute true değilse token'i alıyoruz
+            if (!isMuteAllNotifications && !isMuteFriendInvitations && !isInvitationMuted) {
+                token = userData.fcmToken;
+            }
+        }
                 
         
                 // Send notification to the other user

@@ -40,7 +40,12 @@ const GroupDetails = () => {
     const [friends, setFriends] = useState([]); // Store friends data
     const [description, setDescription] = useState("");
     const [groupName, setGroupName] = useState("");
+    const [muteGroupModalVisible, setMuteGroupModalVisible] = useState(false);
+    const [selectedDuration, setSelectedDuration] = useState(null);
 
+    const handleDurationPress = (duration) => {
+        setSelectedDuration(duration);
+    };
     const saveNewDescription = () => {
         if (description !== group.description) {
             firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
@@ -495,105 +500,122 @@ const isMember = group.members && group.members.includes(userId);
     
         return null;
     };
+
     const handleLeaveGroup = () => {
-        const isOwner = group.author === userId;
-        const isDirector = group.directors && group.directors.includes(userId);
-        const isMember = group.members && group.members.includes(userId);
+        Alert.alert(
+            "Leave Group",
+            "Are you sure you want to leave this group?",
+            [
+                {
+                    text: "No",
+                    onPress: () => console.log("İptal edildi"),
+                    style: "cancel"
+                },
+                {
+                    text: "Yes", onPress: () => {
+                        const isOwner = group.author === userId;
+                        const isDirector = group.directors && group.directors.includes(userId);
+                        const isMember = group.members && group.members.includes(userId);
     
-        const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}`);
-        const userStatusRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}/userStatus/${userId}`);
-        const userGroupsRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}/groups/${groupId}`);
-        setMemberModalVisible(false);
+                        const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}`);
+                        const userStatusRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}/userStatus/${userId}`);
+                        const userGroupsRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}/groups/${groupId}`);
+                        setMemberModalVisible(false);
     
-        const removeFromArray = (ref, userId) => {
-            return ref.once('value')
-                .then(snapshot => {
-                    const array = snapshot.val();
-                    if (array && Array.isArray(array)) {
-                        const index = array.indexOf(userId);
-                        if (index > -1) {
-                            array.splice(index, 1);
-                            return ref.set(array);
+                        const removeFromArray = (ref, userId) => {
+                            return ref.once('value')
+                                .then(snapshot => {
+                                    const array = snapshot.val();
+                                    if (array && Array.isArray(array)) {
+                                        const index = array.indexOf(userId);
+                                        if (index > -1) {
+                                            array.splice(index, 1);
+                                            return ref.set(array);
+                                        }
+                                    }
+                                    return Promise.resolve();
+                                });
+                        };
+    
+                        const tasks = [];
+    
+                        if (isOwner) {
+                            const directors = group.directors || [];
+                            const members = group.members || [];
+    
+                            if (directors.length === 1) {
+                                // Only one director (which is the owner), make a random member both owner and director
+                                const remainingMembers = members.filter(member => member !== userId);
+                                if (remainingMembers.length > 0) {
+                                    const newOwnerId = remainingMembers[Math.floor(Math.random() * remainingMembers.length)];
+                                    tasks.push(
+                                        groupRef.child('author').set(newOwnerId)
+                                            .then(() => console.log(`User ${newOwnerId} set as new owner.`))
+                                            .catch(error => console.error(`Error setting new owner:`, error))
+                                    );
+                                    tasks.push(
+                                        groupRef.child('directors').set([newOwnerId])
+                                            .then(() => console.log(`User ${newOwnerId} set as new director.`))
+                                            .catch(error => console.error(`Error setting new director:`, error))
+                                    );
+                                }
+                            } else if (directors.length === 2) {
+                                // Two directors, make the other director the owner
+                                const otherDirector = directors.find(director => director !== userId);
+                                tasks.push(
+                                    groupRef.child('author').set(otherDirector)
+                                        .then(() => console.log(`User ${otherDirector} set as new owner.`))
+                                        .catch(error => console.error(`Error setting new owner:`, error))
+                                );
+                            } else if (directors.length > 2) {
+                                // More than two directors, choose one randomly as the new owner
+                                const remainingDirectors = directors.filter(director => director !== userId);
+                                const newOwnerId = remainingDirectors[Math.floor(Math.random() * remainingDirectors.length)];
+                                tasks.push(
+                                    groupRef.child('author').set(newOwnerId)
+                                        .then(() => console.log(`User ${newOwnerId} set as new owner.`))
+                                        .catch(error => console.error(`Error setting new owner:`, error))
+                                );
+                            }
                         }
+    
+                        if (isDirector) {
+                            tasks.push(
+                                removeFromArray(groupRef.child('directors'), userId)
+                                    .then(() => console.log(`User ${userId} removed from directors.`))
+                                    .catch(error => console.error(`Error removing user ${userId} from directors:`, error))
+                            );
+                        }
+    
+                        if (isMember || isOwner) {
+                            tasks.push(
+                                removeFromArray(groupRef.child('members'), userId)
+                                    .then(() => console.log(`User ${userId} removed from members.`))
+                                    .catch(error => console.error(`Error removing user ${userId} from members:`, error))
+                            );
+                        }
+    
+                        tasks.push(
+                            userStatusRef.remove()
+                                .then(() => console.log(`User status for ${userId} removed.`))
+                                .catch((error) => console.error(`Error removing user status for ${userId}:`, error))
+                        );
+    
+                        tasks.push(
+                            userGroupsRef.remove()
+                                .then(() => console.log(`User ${userId} removed from group ${groupId} in user data.`))
+                                .catch((error) => console.error(`Error removing user from group ${groupId} in user data:`, error))
+                        );
+    
+                        Promise.all(tasks).then(() => {
+                            console.log(`All tasks for removing user ${userId} completed.`);
+                        });
                     }
-                    return Promise.resolve();
-                });
-        };
-    
-        const tasks = [];
-    
-        if (isOwner) {
-            const directors = group.directors || [];
-            const members = group.members || [];
-            
-            if (directors.length === 1) {
-                // Only one director (which is the owner), make a random member both owner and director
-                const remainingMembers = members.filter(member => member !== userId);
-                if (remainingMembers.length > 0) {
-                    const newOwnerId = remainingMembers[Math.floor(Math.random() * remainingMembers.length)];
-                    tasks.push(
-                        groupRef.child('author').set(newOwnerId)
-                            .then(() => console.log(`User ${newOwnerId} set as new owner.`))
-                            .catch(error => console.error(`Error setting new owner:`, error))
-                    );
-                    tasks.push(
-                        groupRef.child('directors').set([newOwnerId])
-                            .then(() => console.log(`User ${newOwnerId} set as new director.`))
-                            .catch(error => console.error(`Error setting new director:`, error))
-                    );
                 }
-            } else if (directors.length === 2) {
-                // Two directors, make the other director the owner
-                const otherDirector = directors.find(director => director !== userId);
-                tasks.push(
-                    groupRef.child('author').set(otherDirector)
-                        .then(() => console.log(`User ${otherDirector} set as new owner.`))
-                        .catch(error => console.error(`Error setting new owner:`, error))
-                );
-            } else if (directors.length > 2) {
-                // More than two directors, choose one randomly as the new owner
-                const remainingDirectors = directors.filter(director => director !== userId);
-                const newOwnerId = remainingDirectors[Math.floor(Math.random() * remainingDirectors.length)];
-                tasks.push(
-                    groupRef.child('author').set(newOwnerId)
-                        .then(() => console.log(`User ${newOwnerId} set as new owner.`))
-                        .catch(error => console.error(`Error setting new owner:`, error))
-                );
-            }
-        }
-    
-        if (isDirector) {
-            tasks.push(
-                removeFromArray(groupRef.child('directors'), userId)
-                    .then(() => console.log(`User ${userId} removed from directors.`))
-                    .catch(error => console.error(`Error removing user ${userId} from directors:`, error))
-            );
-        }
-    
-        if (isMember || isOwner) {
-            tasks.push(
-                removeFromArray(groupRef.child('members'), userId)
-                    .then(() => console.log(`User ${userId} removed from members.`))
-                    .catch(error => console.error(`Error removing user ${userId} from members:`, error))
-            );
-        }
-    
-        tasks.push(
-            userStatusRef.remove()
-                .then(() => console.log(`User status for ${userId} removed.`))
-                .catch((error) => console.error(`Error removing user status for ${userId}:`, error))
+            ]
         );
-    
-        tasks.push(
-            userGroupsRef.remove()
-                .then(() => console.log(`User ${userId} removed from group ${groupId} in user data.`))
-                .catch((error) => console.error(`Error removing user from group ${groupId} in user data:`, error))
-        );
-    
-        Promise.all(tasks).then(() => {
-            console.log(`All tasks for removing user ${userId} completed.`);
-        });
     };
+    
     
     const handleRemoveFromGroup = (userId) => {
         const isAdmin = group.directors && group.directors.includes(userId);
@@ -850,7 +872,18 @@ setMemberModalVisible(false);
 
         const otherUserSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${id}`).once('value');
         const otherUserData = otherUserSnapshot.val();
-       const token = otherUserData.fcmToken;
+        let token = null;
+
+        if (otherUserData) {
+            const isMuteAllNotifications = otherUserData.muteAllNotifications?.mute;
+            const isMuteGroupInvitations = otherUserData.muteGroupInvitations?.mute;
+            const isInvitationMuted = otherUserData.mutedInvitations?.[userId]?.mute;
+        
+            // Eğer muteAllNotifications, muteGroupInvitations veya mutedInvitations içinde mute true değilse token'i alıyoruz
+            if (!isMuteAllNotifications && !isMuteGroupInvitations && !isInvitationMuted) {
+                token = otherUserData.fcmToken;
+            }
+        }
        // fetch('http://192.168.0.23:3000/send-notification', {
           //  fetch('http://192.168.50.47:3000/send-notification', {
             fetch('http://172.20.10.2:3000/send-notification', {
@@ -940,6 +973,114 @@ setIsModalVisible(true);
             console.error('Error fetching friends data: ', error);
         }
     };
+
+
+    const handleMuteGroup=async()=>{
+        setMuteGroupModalVisible(true)
+    }
+
+    const handleMutePress = async () => {
+        if (!selectedDuration) {
+            Alert.alert('Duration not selected',"Please select a duration");
+            return;
+        }
+        const userRef = firebase
+        .app()
+        .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+        .ref(`users/${userId}/mutedGroups`);
+
+
+
+        if(selectedDuration!=="All Mute"){
+            const serverTime = new Date().getTime(); // Example: you should fetch the actual server time from Firebase
+            const onFinish = serverTime + selectedDuration * 60 * 60 * 1000; // Convert hours to milliseconds
+           // const onFinish = serverTime + 5 * 1000; // Convert hours to milliseconds
+            console.log(selectedDuration);
+            try {
+
+                userRef.update({
+                    [groupId]: {
+                        onFinish: onFinish,
+                        mute: true,
+                        time: selectedDuration,
+                    },
+                });
+                const response = await fetch('http://172.20.10.2:3000/set-group-mute', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        userId,
+                        groupId,
+                        onFinish: onFinish,
+                    }),
+                });
+    
+                const result = await response.json();
+                if (response.ok) {
+                    setMuteGroupModalVisible(false)
+                    setSelectedDuration(null); // Clear selected duration after muting
+                } else {
+                    Alert.alert('Error', result.error || 'Failed to mute the group');
+                }
+            } catch (error) {
+                Alert.alert('Error', 'Failed to connect to the server');
+            }
+        }
+        else{
+
+
+userRef.update({
+    [groupId]: {
+        mute: true,
+        onFinish: null,
+        time: null,
+    },
+});
+setMuteGroupModalVisible(false)
+setSelectedDuration(null); // Clear selected duration after muting
+        }
+    };
+
+    const handleUnmuteGroup = async () => {
+        const userRef = firebase
+            .app()
+            .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+            .ref(`users/${userId}/mutedGroups`);
+    
+        // Check if groupId exists
+        const snapshot = await userRef.child(groupId).once('value');
+        const groupData = snapshot.val();
+    
+        if (groupData) {
+            if (groupData.time) {
+                // Send a POST request to cancel the group mute
+                fetch('http://172.20.10.2:3000/cancel-group-mute', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        userId: userId,
+                        groupId: groupId,
+                    }),
+                })
+                .then(response => response.json())
+                .then(data => console.log('Response:', data))
+                .catch(error => console.error('Error:', error));
+            }
+    
+            // Always update the mutedGroups in Firebase
+            userRef.update({
+                [groupId]: {
+                    onFinish: null,
+                    mute: false,
+                    time: null,
+                },
+            });
+        }
+    };
     const renderFriendItem = ({ item }) => {
         const isMember = group.members.includes(item.userId);
         setMemberModalVisible
@@ -972,7 +1113,7 @@ setIsModalVisible(true);
                     </Text>
                 </View>
                 <TouchableOpacity
-                    style={[styles.actionButton, { borderColor: '#FF8400', borderWidth: 1, borderRadius: 60, padding: 10 }]}
+                    style={{ borderColor: '#FF8400', borderWidth: 1, borderRadius: 60, padding: 10 }}
                     onPress={() => isMember ? handleRemoveFromGroup(item.userId) : handleAddToGroup(item.userId)}
                 >
                     <Text style={{ color: '#FF8400', fontWeight: 'bold',fontSize:10 }}>
@@ -1072,12 +1213,22 @@ setIsModalVisible(true);
                             </View>
                         </View>
                         <View style={styles.buttonsContainer}>
-                 
                         <View style={styles.friendButtons}>
                             {renderButton('Members', handleMembersPress, 'users', '#FF8400')}
                             {renderButton('Message', ()=>{ navigation.popToTop();
         navigation.navigate('Chat', { groupId, name: group.name });}, 'envelope', '#FF8400')}
                         </View>
+                </View>
+                <View style={styles.buttonsContainer}>
+                <View style={styles.friendButtons}>
+  {user.mutedGroups[groupId]?.mute === false ? (
+    renderButton('Mute Group', handleMuteGroup, 'bell-slash', '#FF8400')
+  ) : (
+    renderButton('Unmute Group', handleUnmuteGroup, 'bell', '#FF8400')
+  )}
+  {renderButton('Leave Group', handleLeaveGroup, 'sign-out-alt', 'red')}
+</View>
+
                 </View>
                         {showMedias && (
                             <TouchableOpacity style={styles.mediaButton} onPress={() => setExpanded(!expanded)}>
@@ -1362,7 +1513,48 @@ setIsModalVisible(true);
                 </View>
             </TouchableWithoutFeedback>
         </Modal>
-
+        <Modal
+            visible={muteGroupModalVisible}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setMuteGroupModalVisible(false)}
+        >
+            <TouchableWithoutFeedback onPress={() => setMuteGroupModalVisible(false)}>
+                <View style={styles.modalBackground}>
+                    <TouchableWithoutFeedback>
+                        <View style={styles.modalContent}>
+                            <Text style={styles.durationOptionsText}>Select Duration:</Text>
+                            <View style={styles.durationButtons}>
+                                {[1, 5, 10, 24, "All Mute"].map((duration) => (
+                                    <TouchableOpacity
+                                        key={duration}
+                                        onPress={() => handleDurationPress(duration)}
+                                        style={[
+                                            styles.durationButton,
+                                            selectedDuration === duration && styles.selectedDurationButton,
+                                        ]}
+                                    >
+                                        <Text
+                                            style={[
+                                                styles.durationButtonText,
+                                                selectedDuration === duration && styles.selectedDurationButtonText,
+                                            ]}
+                                        >
+                                            {duration === "All Mute" ? duration : `${duration} Hour${duration > 1 ? 's' : ''}`}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                            <TouchableOpacity onPress={handleMutePress}>
+                                <View style={styles.muteButton}>
+                                    <Text style={styles.muteButtonText}>Mute</Text>
+                                </View>
+                            </TouchableOpacity>
+                        </View>
+                    </TouchableWithoutFeedback>
+                </View>
+            </TouchableWithoutFeedback>
+        </Modal>
         </LinearGradient>
     );
     
@@ -1372,6 +1564,64 @@ const { width, height } = Dimensions.get('window');
 const modalSize = Math.min(width, height) * 0.8;
 
 const styles = StyleSheet.create({
+    modalBackground: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    modalContent: {
+        backgroundColor: 'white',
+        padding: 20,
+        borderRadius: 15,
+        alignItems: 'center',
+        width: '80%',
+        maxHeight: '60%',
+    },
+    durationOptionsText: {
+        fontSize: 16,
+        color: '#4B4B4B',
+        marginBottom: 10,
+    },
+    durationButtons: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        marginBottom: 10,
+        marginTop: 5,
+        width: Dimensions.get('window').width - 100,
+    },
+    durationButton: {
+        padding: 10,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#FF8400',
+        backgroundColor: 'white',
+        marginHorizontal: 5,
+        marginVertical: 5,
+    },
+    selectedDurationButton: {
+        backgroundColor: '#FF8400',
+    },
+    durationButtonText: {
+        color: '#FF8400',
+        fontWeight: 'bold',
+    },
+    selectedDurationButtonText: {
+        color: 'white',
+    },
+    muteButton: {
+        backgroundColor: '#FF8400',
+        borderRadius: 20,
+        height: 30,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 5,
+        width: Dimensions.get('window').width - 150,
+    },
+    muteButtonText: {
+        color: 'white',
+    },
     addMemberButton: {
         borderWidth: 1,
         backgroundColor: '#ff8400',
