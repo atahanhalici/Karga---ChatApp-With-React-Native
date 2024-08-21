@@ -1221,10 +1221,10 @@ setSelectedDuration(null); // Clear selected duration after muting
                 </View>
                 <View style={styles.buttonsContainer}>
                 <View style={styles.friendButtons}>
-  {user.mutedGroups[groupId]?.mute === false ? (
-    renderButton('Mute Group', handleMuteGroup, 'bell-slash', '#FF8400')
-  ) : (
+                {user.mutedGroups && user.mutedGroups[groupId] && user.mutedGroups[groupId].mute === true ? (
     renderButton('Unmute Group', handleUnmuteGroup, 'bell', '#FF8400')
+  ) : (
+    renderButton('Mute Group', handleMuteGroup, 'bell-slash', '#FF8400')
   )}
   {renderButton('Leave Group', handleLeaveGroup, 'sign-out-alt', 'red')}
 </View>

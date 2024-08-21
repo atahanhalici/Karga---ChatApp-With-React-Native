@@ -110,7 +110,7 @@ const NotificationSettings = () => {
         if (duration) {
             const serverTime = new Date().getTime(); // Example: you should fetch the actual server time from Firebase
            const onFinish = serverTime + duration * 60 * 60 * 1000; // Convert hours to milliseconds
-           //const onFinish = serverTime + 5 * 1000; // Convert hours to milliseconds
+           //const onFinish = serverTime + 10 * 1000; // Convert hours to milliseconds
     
             userRef.update({
                 [`${settingKey}`]: {

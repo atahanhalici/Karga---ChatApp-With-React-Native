@@ -424,8 +424,8 @@ const UserDetails = () => {
       
           if (selectedMessageDuration !== "All Mute") {
             const serverTime = new Date().getTime();
-           // const onFinish = serverTime + selectedMessageDuration * 60 * 60 * 1000;
-            const onFinish = serverTime + 15 * 1000; // Convert hours to milliseconds
+            const onFinish = serverTime + selectedMessageDuration * 60 * 60 * 1000;
+           // const onFinish = serverTime + 10 * 1000; // Convert hours to milliseconds
             updates[conversationId] = {
               onFinish: onFinish,
               mute: true,
@@ -662,11 +662,14 @@ const UserDetails = () => {
                         <View style={{flexDirection:'row',alignItems:'center'}}>
                         <View style={styles.friendButtons}>
                             <View style={{flex:1}}/>
-                            {myUser.mutedConversations[conversationId]?.mute === false || myUser.mutedInvitations[userId]?.mute === false? (
+                            {myUser && 
+ (myUser.mutedConversations?.[conversationId]?.mute === false || 
+  myUser.mutedInvitations?.[userId]?.mute === false) ? (
     renderButton('Mute Friend', handleMuteModal, 'bell-slash', '#FF8400')
   ) : (
-    renderButton('Unmute Friend', ()=>{}, 'bell', '#FF8400')
-  )}
+    renderButton('Unmute Friend', () => {}, 'bell', '#FF8400')
+  )
+}
                        
                         <View style={{flex:1}}/>
                     </View>
