@@ -80,7 +80,7 @@ const NotificationSettings = () => {
         
         if (!value) {
             // Send a request to cancel the mute on the server
-            fetch('http://172.20.10.2:3000/cancel-mute', {
+            fetch('https://karga.server.ahmetselimboz.com/cancel-mute', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -121,7 +121,7 @@ const NotificationSettings = () => {
             });
     
             // Node.js sunucusuna POST isteği gönder
-        fetch('http://172.20.10.2:3000/set-mute', {
+        fetch('https://karga.server.ahmetselimboz.com/set-mute', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

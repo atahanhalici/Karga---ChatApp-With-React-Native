@@ -370,7 +370,7 @@ const UserDetails = () => {
             
     
             // Send notification to the other user
-            const response = await fetch('http://172.20.10.2:3000/send-notification', {
+            const response = await fetch('https://karga.server.ahmetselimboz.com/send-notification', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -434,7 +434,7 @@ const UserDetails = () => {
       
             try {
               await messageRef.update(updates);
-              await fetch('http://172.20.10.2:3000/set-conversation-mute', {
+              await fetch('https://karga.server.ahmetselimboz.com/set-conversation-mute', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -464,7 +464,7 @@ const UserDetails = () => {
             if (selectedInviteDuration !== "All Mute") {
               const serverTime = new Date().getTime();
               const onFinish = serverTime + selectedInviteDuration * 60 * 60 * 1000;
-             // const onFinish = serverTime + 5 * 1000; // Convert hours to milliseconds
+              //const onFinish = serverTime + 5 * 1000; // Convert hours to milliseconds
               const inviteUpdate = {
                 onFinish: onFinish,
                 mute: true,
@@ -473,7 +473,7 @@ const UserDetails = () => {
           
               try {
                 await inviteRef.update(inviteUpdate);
-                await fetch('http://172.20.10.2:3000/set-invitation-mute', {
+                await fetch('https://karga.server.ahmetselimboz.com/set-invitation-mute', {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
@@ -528,7 +528,7 @@ const UserDetails = () => {
                             time: null,
                         });
                     } else {
-                        await fetch('http://172.20.10.2:3000/cancel-invitation-mute', {
+                        await fetch('https://karga.server.ahmetselimboz.com/cancel-invitation-mute', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
@@ -578,7 +578,7 @@ const UserDetails = () => {
                     } else {
                         console.log("Canceling mute for conversation:", conversationId);
                         
-                        await fetch('http://172.20.10.2:3000/cancel-conversation-mute', {
+                        await fetch('https://karga.server.ahmetselimboz.com/cancel-conversation-mute', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
@@ -663,11 +663,12 @@ const UserDetails = () => {
                         <View style={styles.friendButtons}>
                             <View style={{flex:1}}/>
                             {myUser && 
- (myUser.mutedConversations?.[conversationId]?.mute === false || 
-  myUser.mutedInvitations?.[userId]?.mute === false) ? (
-    renderButton('Mute Friend', handleMuteModal, 'bell-slash', '#FF8400')
-  ) : (
+ (myUser?.mutedConversations?.[conversationId]?.mute === true || 
+  myUser?.mutedInvitations?.[userId]?.mute === true) ? (
     renderButton('Unmute Friend', () => {}, 'bell', '#FF8400')
+  ) : (
+
+    renderButton('Mute Friend', handleMuteModal, 'bell-slash', '#FF8400')
   )
 }
                        
@@ -732,7 +733,7 @@ const UserDetails = () => {
       <TouchableWithoutFeedback>
         <View style={styles.modalContent}>
           {/* Mesajlar için seçenekler */}
-          {myUser && myUser.mutedConversations && myUser.mutedConversations[conversationId]?.mute === false && (
+          {myUser && myUser?.mutedConversations && myUser?.mutedConversations[conversationId]?.mute === false && (
     <View>
         <Text style={styles.sectionTitle}>For Messages From This User:</Text>
         <View style={styles.durationButtons}>

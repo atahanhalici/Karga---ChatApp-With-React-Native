@@ -46,48 +46,64 @@ app.post('/send-notification', (req, res) => {
 let muteCrons = {}; // Store cron jobs here
 
 app.post('/set-mute', (req, res) => {
-    const { userId, settingKey, onFinish } = req.body;
+    try {
+        const { userId, settingKey, onFinish } = req.body;
+        console.log("set-mute endpoint called");
 
-    if (!userId || !settingKey || !onFinish) {
-        return res.status(400).send({ error: 'Missing required fields' });
-    }
+        if (!userId || !settingKey || !onFinish) {
+            return res.status(400).send({ error: 'Missing required fields' });
+        }
 
-    // Calculate the mute end time
-    const muteEndTime = new Date(onFinish);
-    const cronPattern = `${muteEndTime.getSeconds()} ${muteEndTime.getMinutes()} ${muteEndTime.getHours()} ${muteEndTime.getDate()} ${muteEndTime.getMonth() + 1} *`;
+        const muteEndTime = new Date(onFinish);
+        console.log("Mute end time:", muteEndTime.toISOString());
 
-    // If there's already a cron job, stop it before setting a new one
-    if (muteCrons[userId]?.[settingKey]) {
-        muteCrons[userId][settingKey].stop();
-    }
+        if (isNaN(muteEndTime.getTime())) {
+            return res.status(400).send({ error: 'Invalid date format' });
+        }
 
-    // Schedule the new cron job
-    const task = cron.schedule(cronPattern, () => {
-        const userRef = admin.database().ref(`users/${userId}/${settingKey}`);
-        userRef.update({
-            mute: false,
-            onFinish: null,
-            time: null,
-        })
-        .then(() => {
-            console.log(`Mute for ${settingKey} has ended for user ${userId}`);
-            delete muteCrons[userId][settingKey]; // Cleanup after mute ends
-        })
-        .catch(error => {
-            console.error('Error updating mute status:', error);
+        const cronPattern = `${muteEndTime.getSeconds()} ${muteEndTime.getMinutes()} ${muteEndTime.getHours()} ${muteEndTime.getDate()} ${muteEndTime.getMonth() + 1} *`;
+        console.log("Generated cron pattern:", cronPattern);
+
+        if (muteCrons[userId]?.[settingKey]) {
+            console.log("Stopping existing cron job for user:", userId, " setting:", settingKey);
+            muteCrons[userId][settingKey].stop();
+        }
+
+        const task = cron.schedule(cronPattern, async () => {
+            try {
+                console.log(`Cron job triggered for user ${userId}, setting ${settingKey}`);
+                const userRef = admin.database().ref(`users/${userId}/${settingKey}`);
+                await userRef.update({
+                    mute: false,
+                    onFinish: null,
+                    time: null,
+                });
+                console.log(`Mute for ${settingKey} has ended for user ${userId}`);
+
+                delete muteCrons[userId][settingKey];
+            } catch (error) {
+                console.error('Error updating mute status:', error);
+            }
         });
-    });
 
-    // Store the cron job
-    if (!muteCrons[userId]) {
-        muteCrons[userId] = {};
+        task.start(); // Cron job'un başladığından emin ol
+
+        if (!muteCrons[userId]) {
+            muteCrons[userId] = {};
+        }
+        muteCrons[userId][settingKey] = task;
+
+        res.status(200).send({ success: 'Mute cron job set successfully' });
+    } catch (error) {
+        console.error('Error in /set-mute:', error);
+        res.status(500).send({ error: 'Internal Server Error' });
     }
-    muteCrons[userId][settingKey] = task;
-
-    res.status(200).send({ success: 'Mute cron job set successfully' });
 });
 
+
 app.post('/cancel-mute', (req, res) => {
+
+    console.log("cancel-mute");
     const { userId, settingKey } = req.body;
 
     if (!userId || !settingKey) {
@@ -121,7 +137,7 @@ let muteGroupCrons = {}; // Store cron jobs for group mutes
 
 app.post('/set-group-mute', (req, res) => {
     const { userId, groupId, onFinish } = req.body;
-
+    console.log("set-group-mute");
     if (!userId || !groupId || !onFinish) {
         console.error('Missing required fields:', { userId, groupId, onFinish });
         return res.status(400).send({ error: 'Missing required fields' });
@@ -178,6 +194,7 @@ groupRef
 // Cancel mute for a group
 app.post('/cancel-group-mute', (req, res) => {
     const { userId, groupId } = req.body;
+console.log("cancel-group-mute");
 
     if (!userId || !groupId) {
         return res.status(400).send({ error: 'Missing required fields' });
@@ -210,7 +227,7 @@ let muteConversationCrons = {}; // Store cron jobs for conversation mutes
 
 app.post('/set-conversation-mute', (req, res) => {
     const { myUserId, conversationId, onFinish } = req.body;
-
+    console.log("set-conversation-mute");
     if (!myUserId || !conversationId || !onFinish) {
         console.error('Missing required fields:', { myUserId, conversationId, onFinish });
         return res.status(400).send({ error: 'Missing required fields' });
@@ -253,6 +270,7 @@ app.post('/set-conversation-mute', (req, res) => {
 
 app.post('/cancel-conversation-mute', (req, res) => {
     const { myUserId, conversationId } = req.body;
+console.log("cancel-conversation-mute");
 
     console.log("Received request to cancel conversation mute for:", { myUserId, conversationId });
 
@@ -300,6 +318,7 @@ let muteInvitationCrons = {}; // Store cron jobs for invitation mutes
 
 app.post('/set-invitation-mute', (req, res) => {
     const { myUserId, userId, onFinish } = req.body;
+console.log("set-invitation-mute");
 
     if (!myUserId || !userId || !onFinish) {
         return res.status(400).send({ error: 'Missing required fields' });
@@ -340,6 +359,7 @@ app.post('/set-invitation-mute', (req, res) => {
 });
 app.post('/cancel-invitation-mute', (req, res) => {
     const { myUserId, userId } = req.body;
+console.log("cancel-invitation-mute");
 
     console.log("Received request to cancel invitation mute for:", { myUserId, userId });
 

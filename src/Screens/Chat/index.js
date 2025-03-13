@@ -768,6 +768,7 @@ this.handleLeaveChat(conversationId);
     handleSend = async (messageType = "text",url="") => {
         const { text,selectedFriends } = this.state;
         const { roomId, conversationId, groupId, name } = this.props.route.params;
+    console.log("sa");
     
         const user = auth().currentUser;
         const userId = user.uid;
@@ -884,11 +885,11 @@ this.handleLeaveChat(conversationId);
     
         
     if(messageType!=="vibration"){
-        tokens.forEach(token => {
+        tokens.forEach(token => {      
             if (messageType !== "vibration") {
                 //fetch('http://192.168.0.23:3000/send-notification', {
                    // fetch('http://192.168.50.47:3000/send-notification', {
-                    fetch('http://172.20.10.2:3000/send-notification', {
+                    fetch('https://karga.server.ahmetselimboz.com/send-notification', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -934,7 +935,7 @@ this.handleLeaveChat(conversationId);
                 if (token && messageType !== "vibration") {
                     //fetch('http://192.168.0.23:3000/send-notification', {
                     //fetch('http://192.168.50.47:3000/send-notification', {
-                        fetch('http://172.20.10.2:3000/send-notification', {
+                        fetch('https://karga.server.ahmetselimboz.com/send-notification', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'

@@ -23,13 +23,13 @@ class Home extends Component {
         };
     }
 
-    componentDidMount() {
+    componentDidMount() {       
         this.setUserOnline();
         this.setUserOnlineControl();
         this.fetchNotifications();
     }
 
-    setUserOnline = async () => {
+    setUserOnline = async () => {     
         const userId = firebase.auth().currentUser.uid;
         const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`);
         await userRef.update({ online: true, lastOnlineTime: null });

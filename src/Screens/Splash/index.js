@@ -35,7 +35,7 @@ class Splash extends React.Component {
               />
             </View>
             <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-              <Text style={styles.footerText}>All Rights Reserved © 2024 Karga App</Text>
+              <Text style={styles.footerText}>All Rights Reserved © 2025 Karga App</Text>
             </View>
           </SafeAreaView>
         );

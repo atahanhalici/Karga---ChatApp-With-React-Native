@@ -268,7 +268,7 @@ const Groups = ({filterText}) => {
         }
            // fetch('http://192.168.0.23:3000/send-notification', {
               //  fetch('http://192.168.50.47:3000/send-notification', {
-                fetch('http://172.20.10.2:3000/send-notification', {
+                fetch('https://karga.server.ahmetselimboz.com/send-notification', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

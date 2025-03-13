@@ -3,9 +3,35 @@ import Route from './src/Route';
 import PushNotification from "react-native-push-notification";
 import { firebase } from "@react-native-firebase/app";
 import messaging from '@react-native-firebase/messaging';
+import { Alert, Linking, Platform } from "react-native";
 
 class App extends React.Component {
+
+    checkNotificationPermission = async () => {
+        const authStatus = await messaging().hasPermission();
+        
+        if (authStatus === messaging.AuthorizationStatus.AUTHORIZED) {
+            console.log("Bildirim izni verildi.");
+        } else {
+            Alert.alert(
+                "Notification Permission Required",
+                "You need to give permission to receive notifications from the app.",
+                [
+                    
+                    { text: "Cancel", style: "cancel" },{
+                        text: "Allow",
+                        onPress: async () => {
+                            Linking.openSettings();
+                        },
+                    },
+                ]
+            );
+        }
+    };
+
     componentDidMount() {
+
+        this.checkNotificationPermission();
         // Firebase Messaging üzerinden bildirim ayarları
         firebase.messaging().registerDeviceForRemoteMessages()
             .then((res) => console.log("Device registered:", res))

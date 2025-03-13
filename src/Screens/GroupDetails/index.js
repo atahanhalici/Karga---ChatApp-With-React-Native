@@ -886,7 +886,7 @@ setMemberModalVisible(false);
         }
        // fetch('http://192.168.0.23:3000/send-notification', {
           //  fetch('http://192.168.50.47:3000/send-notification', {
-            fetch('http://172.20.10.2:3000/send-notification', {
+            fetch('https://karga.server.ahmetselimboz.com/send-notification', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -1005,7 +1005,7 @@ setIsModalVisible(true);
                         time: selectedDuration,
                     },
                 });
-                const response = await fetch('http://172.20.10.2:3000/set-group-mute', {
+                const response = await fetch('https://karga.server.ahmetselimboz.com/set-group-mute', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1056,7 +1056,7 @@ setSelectedDuration(null); // Clear selected duration after muting
         if (groupData) {
             if (groupData.time) {
                 // Send a POST request to cancel the group mute
-                fetch('http://172.20.10.2:3000/cancel-group-mute', {
+                fetch('https://karga.server.ahmetselimboz.com/cancel-group-mute', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1221,7 +1221,7 @@ setSelectedDuration(null); // Clear selected duration after muting
                 </View>
                 <View style={styles.buttonsContainer}>
                 <View style={styles.friendButtons}>
-                {user.mutedGroups && user.mutedGroups[groupId] && user.mutedGroups[groupId].mute === true ? (
+                {user?.mutedGroups?.[groupId]?.mute === true  ? (
     renderButton('Unmute Group', handleUnmuteGroup, 'bell', '#FF8400')
   ) : (
     renderButton('Mute Group', handleMuteGroup, 'bell-slash', '#FF8400')

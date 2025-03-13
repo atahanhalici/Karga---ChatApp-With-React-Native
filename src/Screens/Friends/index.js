@@ -192,7 +192,7 @@ const Friends = () => {
                 
         
                 // Send notification to the other user
-                const response = await fetch('http://172.20.10.2:3000/send-notification', {
+                const response = await fetch('https://karga.server.ahmetselimboz.com/send-notification', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
