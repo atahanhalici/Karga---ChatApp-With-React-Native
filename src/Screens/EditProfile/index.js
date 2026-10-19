@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { DATABASE_URL } from '../../config';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator, Modal, TouchableWithoutFeedback ,TextInput,Alert} from 'react-native';
 import firebase from '@react-native-firebase/app';
 import database from '@react-native-firebase/database';
@@ -35,7 +36,7 @@ const EditProfile = () => {
     const [transferred, setTransferred] = useState(0);
 
     useEffect(() => {
-        const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`);
+        const userRef = firebase.app().database(DATABASE_URL).ref(`/users/${userId}`);
         userRef.on('value', snapshot => {
             const userData = snapshot.val();
             setUser(userData);
@@ -163,7 +164,7 @@ const EditProfile = () => {
     
             const url = await storage().ref(filePath).getDownloadURL();
             setUser(prevState => ({ ...prevState, picture: url }));
-            firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`).update({
+            firebase.app().database(DATABASE_URL).ref(`/users/${userId}`).update({
                 picture: url,
             });
     
@@ -207,7 +208,7 @@ const EditProfile = () => {
         setIsValidating(true); 
         setIsUsernameValid(null);
         await sleep(500);
-        const usersRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users`);
+        const usersRef = firebase.app().database(DATABASE_URL).ref(`/users`);
         const snapshot = await usersRef.once('value');
         const users = snapshot.val();
         
@@ -265,7 +266,7 @@ const EditProfile = () => {
         }
     };
     const save = async () => {
-        const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`);
+        const userRef = firebase.app().database(DATABASE_URL).ref(`/users/${userId}`);
     
         if (isUsernameValid) {
             Alert.alert(

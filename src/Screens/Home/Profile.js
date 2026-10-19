@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { DATABASE_URL } from '../../config';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator, Modal, TouchableWithoutFeedback, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import firebase from '@react-native-firebase/app';
@@ -67,7 +68,7 @@ const Profile = () => {
     logout = async () => {
         try {
             // Firebase Realtime Database referansını alın
-            const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+            const userRef = firebase.app().database(DATABASE_URL)
                 .ref(`/users/${userId}`);
     
             // fcmToken değerini sil
@@ -86,7 +87,7 @@ const Profile = () => {
         }
     };
     useEffect(() => {
-        const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`);
+        const userRef = firebase.app().database(DATABASE_URL).ref(`/users/${userId}`);
         userRef.on('value', snapshot => {
             const userData = snapshot.val();
             setUser(userData);
@@ -195,7 +196,7 @@ const Profile = () => {
     
             const url = await storage().ref(filePath).getDownloadURL();
             setUser(prevState => ({ ...prevState, picture: url }));
-            firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`).update({
+            firebase.app().database(DATABASE_URL).ref(`/users/${userId}`).update({
                 picture: url,
             });
     

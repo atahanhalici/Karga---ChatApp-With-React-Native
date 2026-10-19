@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import { DATABASE_URL } from '../../config';
 import { View, TouchableOpacity, Text, StyleSheet, Animated, TextInput, Dimensions, FlatList } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import firebase from '@react-native-firebase/app';
@@ -19,7 +20,7 @@ class Rooms extends Component {
 
     componentDidMount() {
         const user = auth().currentUser;
-        firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+        firebase.app().database(DATABASE_URL)
             .ref('/rooms')
             .on('value', snapshot => {
                 const rooms = [];
@@ -47,7 +48,7 @@ class Rooms extends Component {
                 const userId = user.uid;
                 const userName = user.displayName;
 
-                const newReference = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref('/rooms').push();
+                const newReference = firebase.app().database(DATABASE_URL).ref('/rooms').push();
 
                 newReference.set({
                     name: chatRoomName,

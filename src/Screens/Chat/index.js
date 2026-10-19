@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import { DATABASE_URL, NOTIFICATION_SERVER_URL } from '../../config';
 import { View, Text, StyleSheet, TextInput, FlatList, SafeAreaView,Modal, TouchableOpacity,TouchableWithoutFeedback,SectionList,Image,ActivityIndicator} from 'react-native';
 import CheckBox from '@react-native-community/checkbox';
 import Message from '../../Components/Rooms/Message';
@@ -48,7 +49,7 @@ class Chat extends Component {
             ? `/groups/${id}/userStatus/${userId}` 
             : `/conversations/${id}/userStatus/${userId}`;
     
-        const ref = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(path);
+        const ref = firebase.app().database(DATABASE_URL).ref(path);
     
         await ref.update({ write: status });
     }
@@ -90,7 +91,7 @@ class Chat extends Component {
  decreaseConnectedUserCount = (roomId) => {
 
     // Firebase referansı oluşturun
-    const roomRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`rooms/${roomId}`);
+    const roomRef = firebase.app().database(DATABASE_URL).ref(`rooms/${roomId}`);
 
     // Kullanıcı bağlantısı kesildiğinde bu işlemi yap
     roomRef.onDisconnect().update({
@@ -100,7 +101,7 @@ class Chat extends Component {
 
 decreaseConversationUserStatus = (conversationId) => {
     const userId = firebase.auth().currentUser.uid;
-    const conversationRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/conversations/${conversationId}/userStatus/${userId}`);
+    const conversationRef = firebase.app().database(DATABASE_URL).ref(`/conversations/${conversationId}/userStatus/${userId}`);
     
     conversationRef.onDisconnect().update({
         inChat: false,
@@ -110,7 +111,7 @@ decreaseConversationUserStatus = (conversationId) => {
 
 decreaseGroupUserStatus = (groupId) => {
     const userId = firebase.auth().currentUser.uid;
-    const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}/userStatus/${userId}`);
+    const groupRef = firebase.app().database(DATABASE_URL).ref(`/groups/${groupId}/userStatus/${userId}`);
     
     groupRef.onDisconnect().update({
         inChat: false,
@@ -119,7 +120,7 @@ decreaseGroupUserStatus = (groupId) => {
 };
 
 cancelDisconnect = (roomId) => {
-    const roomRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`rooms/${roomId}`);
+    const roomRef = firebase.app().database(DATABASE_URL).ref(`rooms/${roomId}`);
         
             roomRef.onDisconnect().cancel(); // Firebase'de onDisconnect'i iptal et
         
@@ -127,7 +128,7 @@ cancelDisconnect = (roomId) => {
 
     cancelDisconnectConversation = (conversationId) => {
         const userId = firebase.auth().currentUser.uid;
-        const conversationRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/conversations/${conversationId}/userStatus/${userId}`);
+        const conversationRef = firebase.app().database(DATABASE_URL).ref(`/conversations/${conversationId}/userStatus/${userId}`);
             
                 conversationRef.onDisconnect().cancel(); // Firebase'de onDisconnect'i iptal et
             
@@ -135,7 +136,7 @@ cancelDisconnect = (roomId) => {
 
         cancelDisconnectGroup = (groupId) => {
             const userId = firebase.auth().currentUser.uid;
-            const conversationRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}/userStatus/${userId}`);
+            const conversationRef = firebase.app().database(DATABASE_URL).ref(`/groups/${groupId}/userStatus/${userId}`);
                 
                     conversationRef.onDisconnect().cancel(); // Firebase'de onDisconnect'i iptal et
                 
@@ -177,7 +178,7 @@ cancelDisconnect = (roomId) => {
                 // Get a reference to the user's savedMessages list
                 const userRef = firebase
                     .app()
-                    .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                    .database(DATABASE_URL)
                     .ref(`users/${userId}/savedMessages`);
             
                 // Check if the message already exists in savedMessages
@@ -212,7 +213,7 @@ cancelDisconnect = (roomId) => {
             };
             
              getUserSavedMessages = async (userId) => {
-                const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${userId}/savedMessages`);
+                const userRef = firebase.app().database(DATABASE_URL).ref(`users/${userId}/savedMessages`);
 
                 userRef.on('value', (snapshot) => {
                     const savedMessages = snapshot.val() ? Object.values(snapshot.val()) : [];
@@ -435,7 +436,7 @@ cancelDisconnect = (roomId) => {
            const userId= firebase.auth().currentUser.uid
             if (roomId) {
                 this.joinRoom(roomId);
-                firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                firebase.app().database(DATABASE_URL)
                     .ref(`messages/${roomId}`)
                     .orderByChild('timestamp')
                     .on('value', snapshot => {
@@ -454,7 +455,7 @@ cancelDisconnect = (roomId) => {
                         this.setState({ messages });
                     });
         
-                firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                firebase.app().database(DATABASE_URL)
                     .ref(`rooms/${roomId}/connectedUserCount`)
                     .on('value', snapshot => {
                         this.setState({ connectedUserCount: snapshot.val() || 0 });
@@ -483,7 +484,7 @@ cancelDisconnect = (roomId) => {
 
         getPicture=(groupId)=>{
             if(groupId){
-               const groupRef= firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`groups/${groupId}`);
+               const groupRef= firebase.app().database(DATABASE_URL).ref(`groups/${groupId}`);
                 groupRef.on('value', (snapshot) => {
                     const data = snapshot.val();
                     if (data && data.picture) {
@@ -496,7 +497,7 @@ cancelDisconnect = (roomId) => {
         }
 
     getAllMembers =async (groupId)=>{
-        const membersRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`groups/${groupId}/members`);
+        const membersRef = firebase.app().database(DATABASE_URL).ref(`groups/${groupId}/members`);
 
         // `members` düğümünü dinleyin
         const onValueChange = membersRef.on('value', snapshot => {
@@ -507,7 +508,7 @@ cancelDisconnect = (roomId) => {
 
     markMessagesAsRead = (conversationId) => {
         const userId = firebase.auth().currentUser.uid;
-        const messagesRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`conversations/${conversationId}/messages`);
+        const messagesRef = firebase.app().database(DATABASE_URL).ref(`conversations/${conversationId}/messages`);
     
         messagesRef.once('value', snapshot => {
             snapshot.forEach((childSnapshot) => {
@@ -523,7 +524,7 @@ cancelDisconnect = (roomId) => {
         const userId = firebase.auth().currentUser.uid;
         const messagesRef = firebase
             .app()
-            .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+            .database(DATABASE_URL)
             .ref(`groups/${groupId}/messages`);
     
         messagesRef.once('value', snapshot => {
@@ -540,7 +541,7 @@ cancelDisconnect = (roomId) => {
     
      handleLeaveChat = async (conversationId) => {
         const userId = firebase.auth().currentUser.uid;
-        const conversationRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/conversations/${conversationId}/userStatus/${userId}`);
+        const conversationRef = firebase.app().database(DATABASE_URL).ref(`/conversations/${conversationId}/userStatus/${userId}`);
         
         await conversationRef.update({
             inChat: false,
@@ -552,7 +553,7 @@ cancelDisconnect = (roomId) => {
 
     handleLeaveGroup = async (groupId) => {
         const userId = firebase.auth().currentUser.uid;
-        const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}/userStatus/${userId}`);
+        const groupRef = firebase.app().database(DATABASE_URL).ref(`/groups/${groupId}/userStatus/${userId}`);
         
         await groupRef.update({
             inChat: false,
@@ -578,14 +579,14 @@ this.handleLeaveChat(conversationId);
     }
 
     joinRoom = async (roomId) => {
-        const roomRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`rooms/${roomId}/connectedUserCount`);
+        const roomRef = firebase.app().database(DATABASE_URL).ref(`rooms/${roomId}/connectedUserCount`);
         await roomRef.transaction(count => {
             return (count || 0) + 1;
         });
     };
      handleJoinChat = async (conversationId) => {
         const userId = firebase.auth().currentUser.uid;
-        const conversationRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/conversations/${conversationId}/userStatus/${userId}`);
+        const conversationRef = firebase.app().database(DATABASE_URL).ref(`/conversations/${conversationId}/userStatus/${userId}`);
         
         await conversationRef.update({
             inChat: true,
@@ -597,7 +598,7 @@ this.handleLeaveChat(conversationId);
 
     handleJoinGroup = async (groupId) => {
         const userId = firebase.auth().currentUser.uid;
-        const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}/userStatus/${userId}`);
+        const groupRef = firebase.app().database(DATABASE_URL).ref(`/groups/${groupId}/userStatus/${userId}`);
         
         await groupRef.update({
             inChat: true,
@@ -607,14 +608,14 @@ this.handleLeaveChat(conversationId);
 
     };
     leaveRoom = async (roomId) => {
-        const roomRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`rooms/${roomId}/connectedUserCount`);
+        const roomRef = firebase.app().database(DATABASE_URL).ref(`rooms/${roomId}/connectedUserCount`);
         await roomRef.transaction(count => {
             return (count || 0) - 1;
         });
     };
 
     fetchConversationMessages = (conversationId) => {
-        firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+        firebase.app().database(DATABASE_URL)
             .ref(`conversations/${conversationId}/messages`)
             .orderByChild('timestamp') // timestamp alanına göre sıralama
             .on('value', snapshot => {
@@ -640,7 +641,7 @@ this.handleLeaveChat(conversationId);
 
 
     fetchGroupMessages = (groupId) => {
-        firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+        firebase.app().database(DATABASE_URL)
             .ref(`groups/${groupId}/messages`)
             .orderByChild('timestamp') // timestamp alanına göre sıralama
             .on('value', snapshot => {
@@ -667,7 +668,7 @@ this.handleLeaveChat(conversationId);
 
      otherUserListen = async (conversationId) => {
         const userId = auth().currentUser.uid;
-        const db = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/');
+        const db = firebase.app().database(DATABASE_URL);
     
         // Get other user ID
         const snapshot = await db.ref(`conversations/${conversationId}/members`).once('value');
@@ -708,7 +709,7 @@ this.handleLeaveChat(conversationId);
     groupListen = async (groupId) => {
         try {
             const userId = auth().currentUser.uid;
-            const db = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/');
+            const db = firebase.app().database(DATABASE_URL);
             
             // Get all group member IDs
             const snapshot = await db.ref(`groups/${groupId}/members`).once('value');
@@ -780,11 +781,11 @@ this.handleLeaveChat(conversationId);
         let read = false;
     
         if (roomId) {
-            newReference = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`messages/${roomId}`).push();
+            newReference = firebase.app().database(DATABASE_URL).ref(`messages/${roomId}`).push();
         } else if (conversationId) {
-            newReference = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`conversations/${conversationId}/messages`).push();
+            newReference = firebase.app().database(DATABASE_URL).ref(`conversations/${conversationId}/messages`).push();
             try {
-                const snapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`conversations/${conversationId}/members`).once('value');
+                const snapshot = await firebase.app().database(DATABASE_URL).ref(`conversations/${conversationId}/members`).once('value');
                 let otherUser = null;
                 snapshot.forEach(childSnapshot => {
                     const userIds = childSnapshot.val();
@@ -794,15 +795,15 @@ this.handleLeaveChat(conversationId);
                 });
     
                 if (otherUser) {
-                    const otherUserSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${otherUser}`).once('value');
+                    const otherUserSnapshot = await firebase.app().database(DATABASE_URL).ref(`users/${otherUser}`).once('value');
                     const otherUserData = otherUserSnapshot.val();
                     if (otherUserData && otherUserData.fcmToken) {
                         token = otherUserData.fcmToken;
     
-                        const userStatusSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/conversations/${conversationId}/userStatus/${otherUser}`).once('value');
+                        const userStatusSnapshot = await firebase.app().database(DATABASE_URL).ref(`/conversations/${conversationId}/userStatus/${otherUser}`).once('value');
                         const userStatus = userStatusSnapshot.val();
     
-                        const otherUserLastLeftSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/conversations/${conversationId}/userStatus/${otherUser}/lastLeft`).once('value');
+                        const otherUserLastLeftSnapshot = await firebase.app().database(DATABASE_URL).ref(`/conversations/${conversationId}/userStatus/${otherUser}/lastLeft`).once('value');
                         const otherUserLastLeft = otherUserLastLeftSnapshot.val();
     
                         if (userStatus && userStatus.inChat) {
@@ -824,11 +825,11 @@ this.handleLeaveChat(conversationId);
                 console.error('Error:', error);
             }
         } else if (groupId) {
-            newReference = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`groups/${groupId}/messages`).push();
+            newReference = firebase.app().database(DATABASE_URL).ref(`groups/${groupId}/messages`).push();
             read = [];
     
             try {
-                const groupSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`groups/${groupId}/members`).once('value');
+                const groupSnapshot = await firebase.app().database(DATABASE_URL).ref(`groups/${groupId}/members`).once('value');
                 let tokens = [];
 
 
@@ -837,13 +838,13 @@ this.handleLeaveChat(conversationId);
                 groupSnapshot.forEach(childSnapshot => {
                     const memberId = childSnapshot.val();
                     membersPromises.push(
-                        firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`groups/${groupId}/userStatus/${memberId}`).once('value')
+                        firebase.app().database(DATABASE_URL).ref(`groups/${groupId}/userStatus/${memberId}`).once('value')
                             .then(memberStatusSnapshot => {
                                 const memberStatus = memberStatusSnapshot.val();
                                 if (memberStatus && memberStatus.inChat) {
                                     read.push(memberId);
                                 } else {
-                                    return firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${memberId}`).once('value')
+                                    return firebase.app().database(DATABASE_URL).ref(`users/${memberId}`).once('value')
                                         .then(memberSnapshot => {
                                             const memberData = memberSnapshot.val();
                                             if (memberData && memberData.fcmToken) {
@@ -859,7 +860,7 @@ this.handleLeaveChat(conversationId);
 
                /* if(messageType==="vibration"){
                     for (const friendId of selectedFriends) {
-                        const friendSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${friendId}`).once('value');
+                        const friendSnapshot = await firebase.app().database(DATABASE_URL).ref(`users/${friendId}`).once('value');
                         const friendData = friendSnapshot.val();
                         if (friendData) {
                             selectedUsers.push({ userId: friendId, userName: friendData.userName });
@@ -868,7 +869,7 @@ this.handleLeaveChat(conversationId);
                 }*/
                     if (messageType === "vibration") {
                         for (const friendId of selectedFriends) {
-                            const friendSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${friendId}`).once('value');
+                            const friendSnapshot = await firebase.app().database(DATABASE_URL).ref(`users/${friendId}`).once('value');
                             const friendData = friendSnapshot.val();
                             if (friendData) {
                                 selectedUsers.push(friendId); // Sadece friendId'yi ekliyoruz
@@ -882,7 +883,7 @@ this.handleLeaveChat(conversationId);
             if (messageType !== "vibration") {
                 //fetch('http://192.168.0.23:3000/send-notification', {
                    // fetch('http://192.168.50.47:3000/send-notification', {
-                    fetch('http://172.20.10.2:3000/send-notification', {
+                    fetch(`${NOTIFICATION_SERVER_URL}/send-notification`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -924,11 +925,11 @@ this.handleLeaveChat(conversationId);
     
         newReference.set(messageData).then(() => {
             if (conversationId) {
-                firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`conversations/${conversationId}/`).update({ lastMessageTime: timestamp });
+                firebase.app().database(DATABASE_URL).ref(`conversations/${conversationId}/`).update({ lastMessageTime: timestamp });
                 if (token && messageType !== "vibration") {
                     //fetch('http://192.168.0.23:3000/send-notification', {
                     //fetch('http://192.168.50.47:3000/send-notification', {
-                        fetch('http://172.20.10.2:3000/send-notification', {
+                        fetch(`${NOTIFICATION_SERVER_URL}/send-notification`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -946,7 +947,7 @@ this.handleLeaveChat(conversationId);
                         });
                 }
             } else if (groupId) {
-                firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`groups/${groupId}/`).update({ lastMessageTime: timestamp });
+                firebase.app().database(DATABASE_URL).ref(`groups/${groupId}/`).update({ lastMessageTime: timestamp });
             }
             this.setState({ text: '' });
         }).catch((error) => {
@@ -958,7 +959,7 @@ this.handleLeaveChat(conversationId);
     activeUsersListen = (groupId) => {
         try {
             const userId = auth().currentUser.uid;
-            const db = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/');
+            const db = firebase.app().database(DATABASE_URL);
             
             // Get all group member IDs
             const groupMembersRef = db.ref(`groups/${groupId}/members`);
@@ -1059,7 +1060,7 @@ this.handleLeaveChat(conversationId);
         for (const userId of allMembers) {
             const snapshot = await firebase
                 .app()
-                .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .database(DATABASE_URL)
                 .ref(`users/${userId}`)
                 .once('value');
             if (snapshot.exists()) {
@@ -1075,7 +1076,7 @@ this.handleLeaveChat(conversationId);
         this.setState({ showModall: true });
         const { groupId } = this.props.route.params;
         const userId = auth().currentUser.uid;
-        const db = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/');
+        const db = firebase.app().database(DATABASE_URL);
     
         try {
             // Listen for changes to the list of users who have read the message

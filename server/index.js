@@ -4,7 +4,11 @@ const admin = require('firebase-admin');
 const app = express();
 const port = process.env.PORT || 3000;
 
-const serviceAccount = require('./karga-303a6-firebase-adminsdk-qwpe7-53ed378049.json');
+// Service account key is never committed. Point FIREBASE_SERVICE_ACCOUNT_PATH at your key file
+// or place it at server/serviceAccountKey.json (git-ignored).
+const serviceAccount = require(
+  process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './serviceAccountKey.json',
+);
 
 // Firebase Admin SDK'yı başlat
 admin.initializeApp({

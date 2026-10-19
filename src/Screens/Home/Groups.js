@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { DATABASE_URL, NOTIFICATION_SERVER_URL } from '../../config';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, TextInput, Alert, Animated,Image } from 'react-native';
 import { FAB } from 'react-native-paper';
 import Modal from 'react-native-modal';
@@ -30,7 +31,7 @@ const Groups = ({filterText}) => {
     }, [searchText, friends]);
 
     useEffect(() => {
-        const userGroupsRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}/groups`);
+        const userGroupsRef = firebase.app().database(DATABASE_URL).ref(`/users/${userId}/groups`);
         
         const onGroupsChange = userGroupsRef.on('value', snapshot => {
             const groupsData = snapshot.val() || {};
@@ -46,7 +47,7 @@ const Groups = ({filterText}) => {
                 Object.keys(groupsData).map(async (groupId) => {
                     const groupRef = firebase
                         .app()
-                        .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                        .database(DATABASE_URL)
                         .ref(`/groups/${groupId}`);
                     
                     const groupSnapshot = await groupRef.once('value');
@@ -173,13 +174,13 @@ const Groups = ({filterText}) => {
     const fetchFriends = () => {
         try {
             const userId = firebase.auth().currentUser.uid;
-            const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`);
+            const userRef = firebase.app().database(DATABASE_URL).ref(`/users/${userId}`);
             var friendsRef;
             const onValueChange = userRef.on('value', snapshot => {
                 const userData = snapshot.val();
                 if (userData && userData.friends) {
                     const friendIds = userData.friends;
-                    friendsRef  = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref('/users');
+                    friendsRef  = firebase.app().database(DATABASE_URL).ref('/users');
                     
                     friendsRef.on('value', snapshot => {
                         const allUsers = snapshot.val();
@@ -213,7 +214,7 @@ const Groups = ({filterText}) => {
             return;
         }
 
-       const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref('/groups');
+       const groupRef = firebase.app().database(DATABASE_URL).ref('/groups');
         const newGroupRef = groupRef.push();
         groupId = newGroupRef.key;
         await newGroupRef.set({
@@ -233,7 +234,7 @@ const Groups = ({filterText}) => {
             },
             author:userId,
         });
-      const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}/groups`);
+      const userRef = firebase.app().database(DATABASE_URL).ref(`/users/${userId}/groups`);
 
         // groups kısmına veri ekleme
         await userRef.child(groupId).set(true);
@@ -243,7 +244,7 @@ const Groups = ({filterText}) => {
         // Grubu oluşturma işlemini burada yapabilirsiniz
         // Örneğin: firebase.firestore().collection('groups').add({ groupName, members: selectedFriends });
         otherUserIds.forEach(async (otherUser) => {
-            const otherUserRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${otherUser}/notifications`);
+            const otherUserRef = firebase.app().database(DATABASE_URL).ref(`/users/${otherUser}/notifications`);
             await otherUserRef.push().set({
                 notificationType: "group",
                 id: groupId,
@@ -252,12 +253,12 @@ const Groups = ({filterText}) => {
                 senderId:userId
             });
 
-            const otherUserSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${otherUser}`).once('value');
+            const otherUserSnapshot = await firebase.app().database(DATABASE_URL).ref(`users/${otherUser}`).once('value');
             const otherUserData = otherUserSnapshot.val();
            const token = otherUserData.fcmToken;
            // fetch('http://192.168.0.23:3000/send-notification', {
               //  fetch('http://192.168.50.47:3000/send-notification', {
-                fetch('http://172.20.10.2:3000/send-notification', {
+                fetch(`${NOTIFICATION_SERVER_URL}/send-notification`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

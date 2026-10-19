@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { DATABASE_URL, NOTIFICATION_SERVER_URL } from '../../config';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator, Modal, TouchableWithoutFeedback,Alert,Button } from 'react-native';
 import firebase from '@react-native-firebase/app';
 import database from '@react-native-firebase/database';
@@ -43,7 +44,7 @@ const GroupDetails = () => {
 
     const saveNewDescription = () => {
         if (description !== group.description) {
-            firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+            firebase.app().database(DATABASE_URL)
                 .ref(`/groups/${groupId}`)
                 .update({ description })
                 .then(() => {
@@ -61,7 +62,7 @@ const GroupDetails = () => {
     };
     const saveNewGroupName = () => {
         if (groupName !== group.name) {
-            firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+            firebase.app().database(DATABASE_URL)
                 .ref(`/groups/${groupId}`)
                 .update({ name:groupName })
                 .then(() => {
@@ -78,7 +79,7 @@ const GroupDetails = () => {
         }
     };
     useEffect(() => {
-        const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}`);
+        const groupRef = firebase.app().database(DATABASE_URL).ref(`/groups/${groupId}`);
     
         const handleGroupData = snapshot => {
             const groupData = snapshot.val();
@@ -99,7 +100,7 @@ const GroupDetails = () => {
                 const memberRefs = allMemberIds.map(memberId =>
                     firebase
                         .app()
-                        .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                        .database(DATABASE_URL)
                         .ref(`/users/${memberId}`)
                 );
     
@@ -172,7 +173,7 @@ const GroupDetails = () => {
     
 
     useEffect(() => {
-        const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`);
+        const userRef = firebase.app().database(DATABASE_URL).ref(`/users/${userId}`);
         
         const handleUserData = snapshot => {
             const userData = snapshot.val();
@@ -189,7 +190,7 @@ const GroupDetails = () => {
     }, [userId]);
 
     useEffect(() => {
-        const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}/directors`);
+        const groupRef = firebase.app().database(DATABASE_URL).ref(`/groups/${groupId}/directors`);
     
         const handleDirectorsChange = snapshot => {
             const directors = snapshot.val() || [];
@@ -368,7 +369,7 @@ const GroupDetails = () => {
     
             const url = await storage().ref(filePath).getDownloadURL();
             setGroup(prevState => ({ ...prevState, picture: url }));
-            firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}`).update({
+            firebase.app().database(DATABASE_URL).ref(`/groups/${groupId}`).update({
                 picture: url,
             });
     
@@ -500,9 +501,9 @@ const isMember = group.members && group.members.includes(userId);
         const isDirector = group.directors && group.directors.includes(userId);
         const isMember = group.members && group.members.includes(userId);
     
-        const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}`);
-        const userStatusRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}/userStatus/${userId}`);
-        const userGroupsRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}/groups/${groupId}`);
+        const groupRef = firebase.app().database(DATABASE_URL).ref(`/groups/${groupId}`);
+        const userStatusRef = firebase.app().database(DATABASE_URL).ref(`/groups/${groupId}/userStatus/${userId}`);
+        const userGroupsRef = firebase.app().database(DATABASE_URL).ref(`/users/${userId}/groups/${groupId}`);
         setMemberModalVisible(false);
     
         const removeFromArray = (ref, userId) => {
@@ -599,9 +600,9 @@ const isMember = group.members && group.members.includes(userId);
         const isAdmin = group.directors && group.directors.includes(userId);
         const isMember = group.members && group.members.includes(userId);
     
-        const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}`);
-        const userStatusRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}/userStatus/${userId}`);
-        const userGroupsRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}/groups/${groupId}`);
+        const groupRef = firebase.app().database(DATABASE_URL).ref(`/groups/${groupId}`);
+        const userStatusRef = firebase.app().database(DATABASE_URL).ref(`/groups/${groupId}/userStatus/${userId}`);
+        const userGroupsRef = firebase.app().database(DATABASE_URL).ref(`/users/${userId}/groups/${groupId}`);
         setIsModalVisible(false);
         setMemberModalVisible(false); 
     
@@ -702,7 +703,7 @@ const isMember = group.members && group.members.includes(userId);
     };
     
     const handleMakeAdmin = (userId) => {
-        const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}/directors`);
+        const groupRef = firebase.app().database(DATABASE_URL).ref(`/groups/${groupId}/directors`);
 setMemberModalVisible(false);
         groupRef.once('value')
             .then((snapshot) => {
@@ -736,7 +737,7 @@ setMemberModalVisible(false);
     };
     
     const handleRemoveAdmin = (userId) => {
-        const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}/directors`);
+        const groupRef = firebase.app().database(DATABASE_URL).ref(`/groups/${groupId}/directors`);
         setMemberModalVisible(false);
         groupRef.once('value')
             .then((snapshot) => {
@@ -764,7 +765,7 @@ setMemberModalVisible(false);
     };
 
     const handleLeaveAdminRole = () => {
-        const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}/directors`);
+        const groupRef = firebase.app().database(DATABASE_URL).ref(`/groups/${groupId}/directors`);
         setMemberModalVisible(false);
         groupRef.once('value')
             .then((snapshot) => {
@@ -791,7 +792,7 @@ setMemberModalVisible(false);
             });
     };
     const handleTransferOwnership = (id) => {
-        const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}`);
+        const groupRef = firebase.app().database(DATABASE_URL).ref(`/groups/${groupId}`);
         const directorsRef = groupRef.child('directors');
         const authorRef = groupRef.child('author');
         setMemberModalVisible(false);
@@ -839,7 +840,7 @@ setMemberModalVisible(false);
             });
     };
     const handleAddToGroup=async(id)=>{
-        const otherUserRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${id}/notifications`);
+        const otherUserRef = firebase.app().database(DATABASE_URL).ref(`/users/${id}/notifications`);
         await otherUserRef.push().set({
             notificationType: "group",
             id: groupId,
@@ -848,12 +849,12 @@ setMemberModalVisible(false);
             senderId:userId
         });
 
-        const otherUserSnapshot = await firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`users/${id}`).once('value');
+        const otherUserSnapshot = await firebase.app().database(DATABASE_URL).ref(`users/${id}`).once('value');
         const otherUserData = otherUserSnapshot.val();
        const token = otherUserData.fcmToken;
        // fetch('http://192.168.0.23:3000/send-notification', {
           //  fetch('http://192.168.50.47:3000/send-notification', {
-            fetch('http://172.20.10.2:3000/send-notification', {
+            fetch(`${NOTIFICATION_SERVER_URL}/send-notification`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -903,7 +904,7 @@ setIsModalVisible(true);
             // Fetch the friend IDs
             const friendsRef = firebase
                 .app()
-                .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .database(DATABASE_URL)
                 .ref(`/users/${userId}/friends`);
     
             const snapshot = await friendsRef.once('value');
@@ -916,7 +917,7 @@ setIsModalVisible(true);
             for (const friendId of friendIds) {
                 const friendRef = firebase
                     .app()
-                    .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                    .database(DATABASE_URL)
                     .ref(`/users/${friendId}`);
     
                 const friendSnapshot = await friendRef.once('value');

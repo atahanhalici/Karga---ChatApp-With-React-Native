@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { DATABASE_URL } from '../../config';
 import { TouchableOpacity, Text, StyleSheet, Dimensions, View, Vibration, Image, Modal } from "react-native";
 import Icon from 'react-native-vector-icons/FontAwesome';
 import auth from '@react-native-firebase/auth';
@@ -25,7 +26,7 @@ const Message = ({ item, index, otherUser, isConversation, read, isGroup, openMo
 
             const userSnapshot = await firebase
                 .app()
-                .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .database(DATABASE_URL)
                 .ref(`users/${userId}`)
                 .once('value');
 

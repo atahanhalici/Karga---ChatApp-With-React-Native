@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { DATABASE_URL } from '../../config';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Dimensions, ActivityIndicator, FlatList, Modal } from 'react-native';
 import firebase from '@react-native-firebase/app';
 import { useNavigation } from '@react-navigation/native';
@@ -28,7 +29,7 @@ const SavedMessages = () => {
         const currentUser = firebase.auth().currentUser;
         const userRef = firebase
             .app()
-            .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+            .database(DATABASE_URL)
             .ref(`/users/${currentUser.uid}`);
 
         const fetchUserData = async () => {
@@ -48,7 +49,7 @@ const SavedMessages = () => {
                     const message = messages[key];
                     const senderSnapshot = await firebase
                         .app()
-                        .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                        .database(DATABASE_URL)
                         .ref(`/users/${message.senderId}`)
                         .once('value');
                     const senderData = senderSnapshot.val();
@@ -57,7 +58,7 @@ const SavedMessages = () => {
                     if (message.type === 'group') {
                         const groupSnapshot = await firebase
                             .app()
-                            .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                            .database(DATABASE_URL)
                             .ref(`/groups/${message.id}`)
                             .once('value');
                         chatData = groupSnapshot.val();
@@ -65,14 +66,14 @@ const SavedMessages = () => {
                         // Fetch the specific message from the group's messages node
                         const groupMessageSnapshot = await firebase
                             .app()
-                            .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                            .database(DATABASE_URL)
                             .ref(`/groups/${message.id}/messages/${message.messageId}`)
                             .once('value');
                         messageData = groupMessageSnapshot.val();
                     } else if (message.type === 'conversation') {
                         const conversationSnapshot = await firebase
                             .app()
-                            .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                            .database(DATABASE_URL)
                             .ref(`/conversations/${message.id}`)
                             .once('value');
                         chatData = conversationSnapshot.val();
@@ -80,7 +81,7 @@ const SavedMessages = () => {
                         // Fetch the specific message from the conversation's messages node
                         const conversationMessageSnapshot = await firebase
                             .app()
-                            .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                            .database(DATABASE_URL)
                             .ref(`/conversations/${message.id}/messages/${message.messageId}`)
                             .once('value');
                         messageData = conversationMessageSnapshot.val();
@@ -91,7 +92,7 @@ const SavedMessages = () => {
                         (messageData.selectedUsers || []).map(async (user) => {
                             const userSnapshot = await firebase
                                 .app()
-                                .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                                .database(DATABASE_URL)
                                 .ref(`/users/${user}`)
                                 .once('value');
                             const userData = userSnapshot.val();                  

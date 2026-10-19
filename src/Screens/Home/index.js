@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import { DATABASE_URL } from '../../config';
 import { View, TouchableOpacity, Text, StyleSheet, Animated, TextInput, Dimensions, Modal, TouchableWithoutFeedback, FlatList,Image } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/FontAwesome5';
@@ -31,13 +32,13 @@ class Home extends Component {
 
     setUserOnline = async () => {
         const userId = firebase.auth().currentUser.uid;
-        const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`);
+        const userRef = firebase.app().database(DATABASE_URL).ref(`/users/${userId}`);
         await userRef.update({ online: true, lastOnlineTime: null });
     }
 
     setUserOnlineControl = () => {
         const userId = firebase.auth().currentUser.uid;
-        const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`);
+        const userRef = firebase.app().database(DATABASE_URL).ref(`/users/${userId}`);
 
         userRef.onDisconnect().update({
             online: false,
@@ -47,7 +48,7 @@ class Home extends Component {
 
     fetchNotifications = () => {
         const userId = firebase.auth().currentUser.uid;
-        const notificationsRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}/notifications`);
+        const notificationsRef = firebase.app().database(DATABASE_URL).ref(`/users/${userId}/notifications`);
 
         notificationsRef.on('value', snapshot => {
             const notificationsData = snapshot.val();
@@ -66,7 +67,7 @@ class Home extends Component {
     handleAcceptGroup = async (groupId, userId) => {
 
 
-        const groupRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/groups/${groupId}`);
+        const groupRef = firebase.app().database(DATABASE_URL).ref(`/groups/${groupId}`);
         await groupRef.child('members').once('value').then(async (snapshot) => {
             const members = snapshot.val() || [];
             if (!members.includes(userId)) {
@@ -84,7 +85,7 @@ class Home extends Component {
         };
 
         await groupRef.child('userStatus').update(userStatusUpdate);
-        const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`);
+        const userRef = firebase.app().database(DATABASE_URL).ref(`/users/${userId}`);
 
         // groupId'yi kullanıcı verisine eklemek için
         await userRef.once('value').then(async (snapshot) => {
@@ -98,7 +99,7 @@ class Home extends Component {
         });
         
 
-        const userRefs = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}/notifications`);
+        const userRefs = firebase.app().database(DATABASE_URL).ref(`/users/${userId}/notifications`);
 
         await userRefs.once('value').then(async (snapshot) => {
             const notifications = snapshot.val() || {};
@@ -123,7 +124,7 @@ class Home extends Component {
     }
 
     handleAcceptFriend = async (senderId, userId) => {
-        const dbUrl = 'https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/';
+        const dbUrl = DATABASE_URL;
         const userRefs = firebase.app().database(dbUrl).ref(`/users/${userId}/notifications`);
     
         await userRefs.once('value').then(async (snapshot) => {
@@ -180,7 +181,7 @@ class Home extends Component {
     }
 
     handleRejectGroup = async (groupId, userId) =>{
-        const userRefs = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}/notifications`);
+        const userRefs = firebase.app().database(DATABASE_URL).ref(`/users/${userId}/notifications`);
 
         await userRefs.once('value').then(async (snapshot) => {
             const notifications = snapshot.val() || {};
@@ -209,7 +210,7 @@ class Home extends Component {
             // Reference to the other user's notifications
             const otherUserNotificationsRef = firebase
                 .app()
-                .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .database(DATABASE_URL)
                 .ref(`/users/${userId}/notifications`);
     
             // Find and remove the specific notification
@@ -226,7 +227,7 @@ class Home extends Component {
             // Reference to the other user's friendRequests
             const otherUserFriendRequestsRef = firebase
                 .app()
-                .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .database(DATABASE_URL)
                 .ref(`/users/${userId}/friendRequests/${senderId}`);
     
             // Remove the friend request from the other user's data
@@ -235,7 +236,7 @@ class Home extends Component {
             // Reference to the current user's sendRequests
             const myUserSendRequestsRef = firebase
                 .app()
-                .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .database(DATABASE_URL)
                 .ref(`/users/${senderId}/sendRequests/${userId}`);
     
             // Remove the send request from the current user's data

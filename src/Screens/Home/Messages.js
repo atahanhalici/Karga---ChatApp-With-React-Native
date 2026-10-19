@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { DATABASE_URL } from '../../config';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions,Image } from 'react-native';
 import { FAB } from 'react-native-paper';
 import Modal from 'react-native-modal';
@@ -15,7 +16,7 @@ const Messages = ({filterText}) => {
     const userId = firebase.auth().currentUser.uid;
     useEffect(() => {
 
-        const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}/conversations`);
+        const userRef = firebase.app().database(DATABASE_URL).ref(`/users/${userId}/conversations`);
         
         const onConversationsChange = userRef.on('value', snapshot => {
             const conversationsData = snapshot.val() || {};
@@ -31,7 +32,7 @@ const Messages = ({filterText}) => {
                 Object.keys(conversationsData).map(async (conversationId) => {
                     const conversationRef = firebase
                         .app()
-                        .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                        .database(DATABASE_URL)
                         .ref(`/conversations/${conversationId}`);
                     
                     const conversationSnapshot = await conversationRef.once('value');
@@ -41,7 +42,7 @@ const Messages = ({filterText}) => {
                         const friendId = conversation.members.find(id => id !== userId);
                         const friendRef = firebase
                             .app()
-                            .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                            .database(DATABASE_URL)
                             .ref(`/users/${friendId}`);
                         const friendSnapshot = await friendRef.once('value');
                         const friend = friendSnapshot.val();
@@ -117,13 +118,13 @@ const Messages = ({filterText}) => {
     const fetchFriends = () => {
         try {
             const userId = firebase.auth().currentUser.uid;
-            const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`);
+            const userRef = firebase.app().database(DATABASE_URL).ref(`/users/${userId}`);
             var friendsRef;
             const onValueChange = userRef.on('value', snapshot => {
                 const userData = snapshot.val();
                 if (userData && userData.friends) {
                     const friendIds = userData.friends;
-                    friendsRef  = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref('/users');
+                    friendsRef  = firebase.app().database(DATABASE_URL).ref('/users');
                     
                     friendsRef.on('value', snapshot => {
                         const allUsers = snapshot.val();
@@ -146,8 +147,8 @@ const Messages = ({filterText}) => {
 
     const handleFriendPress = async (friend) => {
         const userId = firebase.auth().currentUser.uid;
-        const conversationRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref('/conversations');
-        const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}/conversations`);
+        const conversationRef = firebase.app().database(DATABASE_URL).ref('/conversations');
+        const userRef = firebase.app().database(DATABASE_URL).ref(`/users/${userId}/conversations`);
     
         let conversationId;
     
@@ -185,7 +186,7 @@ const Messages = ({filterText}) => {
             });
     
             // Add conversation to users' list
-            const friendRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${friend.userId}/conversations/${conversationId}`);
+            const friendRef = firebase.app().database(DATABASE_URL).ref(`/users/${friend.userId}/conversations/${conversationId}`);
             await userRef.child(conversationId).set(true);
             await friendRef.set(true);
         } else {

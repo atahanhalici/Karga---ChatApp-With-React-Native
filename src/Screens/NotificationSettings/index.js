@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { DATABASE_URL } from '../../config';
 import { View, Text, StyleSheet, TouchableOpacity, Switch, Dimensions, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
@@ -18,7 +19,7 @@ const NotificationSettings = () => {
     const userId = firebase.auth().currentUser.uid;
     const userRef = firebase
         .app()
-        .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+        .database(DATABASE_URL)
         .ref(`users/${userId}`);
 
     useEffect(() => {

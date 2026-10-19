@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { DATABASE_URL, NOTIFICATION_SERVER_URL } from '../../config';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Dimensions, ActivityIndicator, Modal, TouchableWithoutFeedback } from 'react-native';
 import firebase from '@react-native-firebase/app';
 import database from '@react-native-firebase/database';
@@ -26,7 +27,7 @@ const UserDetails = () => {
     const [showMedias, setShowMedias] = useState(false);
 
     useEffect(() => {
-        const userRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${userId}`);
+        const userRef = firebase.app().database(DATABASE_URL).ref(`/users/${userId}`);
         userRef.on('value', snapshot => {
             const userData = snapshot.val();
             if (userData) {
@@ -36,7 +37,7 @@ const UserDetails = () => {
                 setConversationsCount(userData.conversations ? Object.keys(userData.conversations).length : 0);
                 setGroupsCount(userData.groups ? Object.keys(userData.groups).length : 0);
     
-                const myUserRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/users/${myUserId}`);
+                const myUserRef = firebase.app().database(DATABASE_URL).ref(`/users/${myUserId}`);
 
                 myUserRef.on('value', mySnapshot => {
                     const myData = mySnapshot.val();
@@ -55,7 +56,7 @@ const UserDetails = () => {
                     }
                 });
     
-                const conversationsRef = firebase.app().database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/').ref(`/conversations`);
+                const conversationsRef = firebase.app().database(DATABASE_URL).ref(`/conversations`);
                 conversationsRef.once('value', conversationsSnapshot => {
                     const conversationsData = conversationsSnapshot.val();
                     if (conversationsData) {
@@ -151,7 +152,7 @@ const UserDetails = () => {
             // Reference to the other user's notifications
             const otherUserNotificationsRef = firebase
                 .app()
-                .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .database(DATABASE_URL)
                 .ref(`/users/${userId}/notifications`);
     
             // Find and remove the specific notification
@@ -168,7 +169,7 @@ const UserDetails = () => {
             // Reference to the other user's friendRequests
             const otherUserFriendRequestsRef = firebase
                 .app()
-                .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .database(DATABASE_URL)
                 .ref(`/users/${userId}/friendRequests/${myUserId}`);
     
             // Remove the friend request from the other user's data
@@ -177,7 +178,7 @@ const UserDetails = () => {
             // Reference to the current user's sendRequests
             const myUserSendRequestsRef = firebase
                 .app()
-                .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .database(DATABASE_URL)
                 .ref(`/users/${myUserId}/sendRequests/${userId}`);
     
             // Remove the send request from the current user's data
@@ -196,7 +197,7 @@ const UserDetails = () => {
     const handleAcceptRequest = async() => {
         console.log('Accepting friend request...');
 
-        const dbUrl = 'https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/';
+        const dbUrl = DATABASE_URL;
         const userRefs = firebase.app().database(dbUrl).ref(`/users/${myUserId}/notifications`);
     
         await userRefs.once('value').then(async (snapshot) => {
@@ -261,7 +262,7 @@ const UserDetails = () => {
             // Reference to the other user's notifications
             const otherUserNotificationsRef = firebase
                 .app()
-                .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .database(DATABASE_URL)
                 .ref(`/users/${myUserId}/notifications`);
     
             // Find and remove the specific notification
@@ -278,7 +279,7 @@ const UserDetails = () => {
             // Reference to the other user's friendRequests
             const otherUserFriendRequestsRef = firebase
                 .app()
-                .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .database(DATABASE_URL)
                 .ref(`/users/${myUserId}/friendRequests/${userId}`);
     
             // Remove the friend request from the other user's data
@@ -287,7 +288,7 @@ const UserDetails = () => {
             // Reference to the current user's sendRequests
             const myUserSendRequestsRef = firebase
                 .app()
-                .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .database(DATABASE_URL)
                 .ref(`/users/${userId}/sendRequests/${myUserId}`);
     
             // Remove the send request from the current user's data
@@ -306,7 +307,7 @@ const UserDetails = () => {
             // Reference to the other user's notifications in the database
             const otherUserRef = firebase
                 .app()
-                .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .database(DATABASE_URL)
                 .ref(`/users/${userId}/notifications`);
     
             // Push a new friend request notification
@@ -319,7 +320,7 @@ const UserDetails = () => {
             // Add otherUserId to the sendRequests list in the current user's data
             const myUserRef = firebase
             .app()
-            .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+            .database(DATABASE_URL)
             .ref(`/users/${myUserId}`);
 
         // Update the sendRequests list with true value
@@ -333,7 +334,7 @@ const UserDetails = () => {
         // Reference to the other user's friendRequests
         const friendRequestsRef = firebase
             .app()
-            .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+            .database(DATABASE_URL)
             .ref(`/users/${userId}`);
 
         // Update the friendRequests list with true value
@@ -347,7 +348,7 @@ const UserDetails = () => {
             // Get the other user's token
             const snapshot = await firebase
                 .app()
-                .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+                .database(DATABASE_URL)
                 .ref(`/users/${userId}`)
                 .once('value');
     
@@ -355,7 +356,7 @@ const UserDetails = () => {
             
     
             // Send notification to the other user
-            const response = await fetch('http://172.20.10.2:3000/send-notification', {
+            const response = await fetch(`${NOTIFICATION_SERVER_URL}/send-notification`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

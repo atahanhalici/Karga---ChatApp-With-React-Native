@@ -1,4 +1,5 @@
 import React from 'react'
+import { DATABASE_URL } from '../../config';
 import { Image, StyleSheet, View,SafeAreaView, TouchableOpacity,Text ,Alert} from 'react-native';
 import { TextInput } from 'react-native-gesture-handler';
 import { Formik } from 'formik';
@@ -29,7 +30,7 @@ class Register extends React.Component {
           const timestamp = firebase.database.ServerValue.TIMESTAMP;
           const userRef = firebase
             .app()
-            .database('https://karga-303a6-default-rtdb.europe-west1.firebasedatabase.app/')
+            .database(DATABASE_URL)
             .ref(`users/${user.uid}`);
     
           await userRef.set({
